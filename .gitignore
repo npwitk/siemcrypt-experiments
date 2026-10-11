@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Datasets live outside the repo (~/data/ait-ldsv2); never commit raw logs
+/data/
+*.pkl
+
+# Results at the top of results/ are scratch output of the latest run.
+# Keep curated runs in named subfolders (e.g. results/vm-m7i-2xlarge/) and commit those.
+results/*.csv
+results/*.md
+results/*.log
+results/*.txt
+
+# AWS keys and local env
+*.pem
+.env
+
+# macOS
+.DS_Store

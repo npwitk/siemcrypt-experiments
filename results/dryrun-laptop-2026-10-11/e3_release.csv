@@ -1,0 +1,5 @@
+system,seed,per_entity_releases,single_record_value_releases,downgraded,repeated_request_refused,differencing_epochs_recovered,epochs
+S,1,640,0,621,1,8,8
+S,2,640,0,619,1,8,8
+A5,1,640,50,0,1,8,8
+A5,2,640,50,0,1,8,8

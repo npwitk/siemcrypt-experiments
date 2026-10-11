@@ -1,0 +1,287 @@
+...............................                                          [100%]
+31 passed in 6.64s
+SIEMCrypt microbenchmarks (Paillier 2048-bit)
+  T_H                            0.73 us  SHA-256, 64-byte input
+  T_PRF                          2.98 us  token F_K(H(v)) = HMAC-SHA256(SHA-256(v))
+  T_KDF                          3.90 us  HKDF-SHA256 epoch key
+  T_AES (enc)                    1.87 us  AES-256-GCM, 512-byte payload
+  T_AES (dec)                    1.41 us  AES-256-GCM, 512-byte payload
+  KeyGen                     18769.48 us  Paillier 2048-bit (one-time)
+  T_rand (offline)            8451.84 us  precompute r^N mod N^2
+  T_Enc (online)              8454.27 us  Paillier encryption without precomputation
+  T_Enc                          3.07 us  Paillier encryption with precomputed r^N
+  T_Add                          4.51 us  homomorphic addition (mod N^2 multiplication)
+  T_SMul                        83.02 us  plaintext-ciphertext multiplication, 16-bit weight
+  T_Dec                       2382.59 us  Paillier CRT decryption
+  T_Sig                         26.99 us  Ed25519 sign (checkpoint)
+  T_Ver                         85.61 us  Ed25519 verify (checkpoint)
+  MMR append                     0.75 us  amortized per leaf (n=65536), excl. leaf hash
+  MultiVerify k=1               28.11 us  n=65536; proof=16 hashes (vs 16 for separate paths)
+  MultiVerify k=16             230.17 us  n=65536; proof=180 hashes (vs 256 for separate paths)
+  MultiVerify k=256           2487.19 us  n=65536; proof=1808 hashes (vs 4096 for separate paths)
+  CMS update                     2.70 us  Count-Min update, 5x2719
+
+Ciphertext size: 512 bytes per Paillier ciphertext
+Environment: Linux-6.17.0-1017-aws-x86_64-with-glibc2.39 | Python 3.12.3
+Wrote results/e2_microbench.csv
+
+| Symbol | Operation | Median (µs) |
+|---|---|---|
+| `T_H` | SHA-256, 64-byte input | 0.73 |
+| `T_PRF` | token F_K(H(v)) = HMAC-SHA256(SHA-256(v)) | 2.98 |
+| `T_KDF` | HKDF-SHA256 epoch key | 3.90 |
+| `T_AES (enc)` | AES-256-GCM, 512-byte payload | 1.87 |
+| `T_AES (dec)` | AES-256-GCM, 512-byte payload | 1.41 |
+| `KeyGen` | Paillier 2048-bit (one-time) | 18,769.48 |
+| `T_rand (offline)` | precompute r^N mod N^2 | 8,451.84 |
+| `T_Enc (online)` | Paillier encryption without precomputation | 8,454.27 |
+| `T_Enc` | Paillier encryption with precomputed r^N | 3.07 |
+| `T_Add` | homomorphic addition (mod N^2 multiplication) | 4.51 |
+| `T_SMul` | plaintext-ciphertext multiplication, 16-bit weight | 83.02 |
+| `T_Dec` | Paillier CRT decryption | 2,382.59 |
+| `T_Sig` | Ed25519 sign (checkpoint) | 26.99 |
+| `T_Ver` | Ed25519 verify (checkpoint) | 85.61 |
+| `MMR append` | amortized per leaf (n=65536), excl. leaf hash | 0.75 |
+| `MultiVerify k=1` | n=65536; proof=16 hashes (vs 16 for separate paths) | 28.11 |
+| `MultiVerify k=16` | n=65536; proof=180 hashes (vs 256 for separate paths) | 230.17 |
+| `MultiVerify k=256` | n=65536; proof=1808 hashes (vs 4096 for separate paths) | 2,487.19 |
+| `CMS update` | Count-Min update, 5x2719 | 2.70 |
+3806 events in 36.9s (103 ev/s); decoys 2274 (delta=0.60); KA decryptions 30
+EE Phase 1-2: online 0.29s (13,120 ev/s), offline randomizers 36.36s; phases phase12 36.76s, phase3 0.09s, phase4 0.01s, phase5 0.00s
+bytes EE->cloud 11,123,251; messages in cloud view 6,128
+
+Ground truth:
+  bf0    brute_force   user052  epochs [6]  -> DETECTED in [6]
+  bf1    brute_force   user058  epochs [4]  -> DETECTED in [4]
+  lns0   low_and_slow  user073  epochs [1, 2, 3, 4, 5]  -> missed
+  lns1   low_and_slow  user045  epochs [1, 2, 3, 4, 5]  -> missed
+  exf0   exfil         user068  epochs [3, 4, 5]  -> DETECTED in [5]
+False-positive (entity, class) pairs: 7 ['user000', 'user000', 'user000', 'user001', 'user003', 'user052', 'user058']
+Unclassified (screening) alerts for 8 entities
+calibrated 7 systems in 31s
+part A done in 72s
+part B done in 835s
+# E1 results (synthetic data; ip-172-31-8-110, Linux-6.17.0-1017-aws-x86_64-with-glibc2.39)
+
+Seeds [1, 2, 3, 4, 5]; target benign FPR 0.005 per (entity, epoch) on development streams.
+
+## Part A: per-class detection (mean ± sd over seeds)
+
+| System | Class | Precision | Recall | F1 | Delay (epochs) |
+|---|---|---|---|---|---|
+| S | cred_access | 0.533 ± 0.075 | 0.500 ± 0.000 | 0.514 ± 0.032 | 0.000 ± 0.000 |
+| S | exfil | 0.400 ± 0.091 | 1.000 ± 0.000 | 0.567 ± 0.091 | 0.000 ± 0.000 |
+| S | multi_source | 0.348 ± 0.088 | 1.000 ± 0.000 | 0.511 ± 0.091 | 0.000 ± 0.000 |
+| B2 | cred_access | 0.700 ± 0.046 | 0.600 ± 0.137 | 0.643 ± 0.098 | 0.533 ± 0.767 |
+| B2 | exfil | 0.383 ± 0.112 | 1.000 ± 0.000 | 0.547 ± 0.117 | 0.000 ± 0.000 |
+| B2 | multi_source | 0.567 ± 0.091 | 1.000 ± 0.000 | 0.720 ± 0.073 | 0.000 ± 0.000 |
+| A1 | cred_access | 0.700 ± 0.046 | 0.600 ± 0.137 | 0.643 ± 0.098 | 0.533 ± 0.767 |
+| A1 | exfil | 0.383 ± 0.112 | 1.000 ± 0.000 | 0.547 ± 0.117 | 0.000 ± 0.000 |
+| A1 | multi_source | 0.567 ± 0.091 | 1.000 ± 0.000 | 0.720 ± 0.073 | 0.000 ± 0.000 |
+| A2 | cred_access | 0.600 ± 0.091 | 0.500 ± 0.000 | 0.543 ± 0.039 | 0.000 ± 0.000 |
+| A2 | exfil | 0.400 ± 0.091 | 1.000 ± 0.000 | 0.567 ± 0.091 | 0.000 ± 0.000 |
+| A2 | multi_source | 0.500 ± 0.000 | 0.700 ± 0.274 | 0.567 ± 0.091 | 0.000 ± 0.000 |
+| A3 | cred_access | 0.533 ± 0.075 | 0.500 ± 0.000 | 0.514 ± 0.032 | 0.000 ± 0.000 |
+| A3 | exfil | 0.400 ± 0.091 | 1.000 ± 0.000 | 0.567 ± 0.091 | 0.000 ± 0.000 |
+| A3 | multi_source | 0.348 ± 0.088 | 1.000 ± 0.000 | 0.511 ± 0.091 | 0.000 ± 0.000 |
+| B1-default | cred_access | 1.000 ± 0.000 | 0.500 ± 0.000 | 0.667 ± 0.000 | 0.000 ± 0.000 |
+| B1-default | exfil | 0.000 ± 0.000 | 0.000 ± 0.000 | 0.000 ± 0.000 | n/a |
+| B1-default | multi_source | 0.000 ± 0.000 | 0.000 ± 0.000 | 0.000 ± 0.000 | n/a |
+| B1-tuned | cred_access | 0.723 ± 0.088 | 0.900 ± 0.137 | 0.799 ± 0.095 | 0.933 ± 0.557 |
+| B1-tuned | exfil | 0.700 ± 0.274 | 1.000 ± 0.000 | 0.800 ± 0.183 | 0.000 ± 0.000 |
+| B1-tuned | multi_source | 0.000 ± 0.000 | 0.000 ± 0.000 | 0.000 ± 0.000 | n/a |
+
+| System | Macro F1 |
+|---|---|
+| S | 0.531 ± 0.031 |
+| B2 | 0.637 ± 0.049 |
+| A1 | 0.637 ± 0.049 |
+| A2 | 0.559 ± 0.037 |
+| A3 | 0.531 ± 0.031 |
+| B1-default | 0.222 ± 0.000 |
+| B1-tuned | 0.533 ± 0.090 |
+
+## McNemar (exact) of S vs. each system on identical incidents, Holm-adjusted
+
+| System | S only | system only | p | p (Holm) |
+|---|---|---|---|---|
+| A1 | 0 | 2 | 0.5 | 1 |
+| A2 | 3 | 0 | 0.25 | 1 |
+| A3 | 0 | 0 | 1 | 1 |
+| B1-default | 15 | 0 | 6.1e-05 | 0.000366 |
+| B1-tuned | 10 | 8 | 0.815 | 1 |
+| B2 | 0 | 2 | 0.5 | 1 |
+
+## Screening path (S has screening; A3 does not)
+
+| System | Unclassified alerts / run | Entities / run | Attacker entities / run | Incidents hit by screening | Found only by screening |
+|---|---|---|---|---|---|
+| S | 24.2 | 16.0 | 2.6 | 13/35 | 0 |
+| A3 | 0.0 | 0.0 | 0.0 | 0/35 | 0 |
+
+## Part B: low-and-slow recall (mean over seeds) by rate r per epoch
+
+
+Span 3 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.00 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B2 | 0.00 | 0.00 | 0.07 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| A2 | 0.00 | 0.00 | 0.00 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 0.00 | 0.00 | 0.87 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+Span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B2 | 0.00 | 0.00 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| A2 | 0.00 | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 0.00 | 0.00 | 0.93 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+Span 12 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.13 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B2 | 0.00 | 0.00 | 0.93 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| A2 | 0.00 | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+Total time 835s
+# E3 results (synthetic data)
+
+Seeds [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; mean ± sd.
+
+## Token attacks (a)-(c)
+
+| System | δ | U tokens recovered | U volume recovered | R tokens recovered | R volume recovered | Decoy AUC | Linkage acc. | Linkage chance |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.647 ± 0.042 | 0.083 ± 0.011 | 0.461 ± 0.027 | 0.027 ± 0.009 | 0.028 ± 0.012 | 0.994 ± 0.002 | 0.073 ± 0.008 | 0.003 ± 0.000 |
+| A1 | 0.000 ± 0.000 | 0.089 ± 0.011 | 0.467 ± 0.034 | 0.030 ± 0.008 | 0.025 ± 0.010 | n/a | 0.081 ± 0.010 | 0.014 ± 0.000 |
+| A4 | 0.647 ± 0.042 | 0.125 ± 0.014 | 0.549 ± 0.025 | 0.033 ± 0.012 | 0.035 ± 0.016 | 0.994 ± 0.002 | 1.000 ± 0.000 | 0.003 ± 0.000 |
+| static | 0.000 ± 0.000 | 0.135 ± 0.010 | 0.564 ± 0.016 | 0.034 ± 0.014 | 0.033 ± 0.016 | n/a | 1.000 ± 0.000 | 0.014 ± 0.000 |
+
+## Release attacks (d), per run
+
+| System | Per-entity releases | Single-record VALUE releases | Downgraded to DECISION | Repeated request refused | Differencing recovered (epochs) |
+|---|---|---|---|---|---|
+| S | 640 | 0.000 ± 0.000 | 618.400 ± 1.647 | 10/10 | 8.000 ± 0.000 of 8 |
+| A5 | 640 | 56.900 ± 5.065 | 0.000 ± 0.000 | 10/10 | 8.000 ± 0.000 of 8 |
+
+Total time 70s
+calibrated 12 settings in 103s
+# E4 results (synthetic data, 512-bit keys unless noted)
+
+Seeds [1, 2, 3]; one-at-a-time sweeps around gamma=2, epoch=60 min, k_min=3.
+2048-bit offline cost is predicted from E2's T_rand when results/e2_microbench.csv is a 2048-bit run.
+
+
+## gamma
+
+| gamma | δ | HE enc / event | Online µs / event | Offline µs / event | Offline ms / event @2048 | Bytes / event | Macro F1 | Delay (h) | U recovery | Decoy AUC | Linkage |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1.0 | 0.000 ± 0.000 | 3.000 ± 0.000 | 67.446 ± 8.244 | 1072.360 ± 6.950 | 25.356 ± 0.000 | 677.984 ± 0.020 | 0.666 ± 0.037 | 0.185 ± 0.321 | 0.090 ± 0.008 | n/a | 0.076 ± 0.005 |
+| 1.5 | 0.285 ± 0.031 | 3.854 ± 0.093 | 91.494 ± 11.361 | 1386.156 ± 32.845 | 32.575 ± 0.784 | 870.643 ± 20.904 | 0.507 ± 0.045 | 0.389 ± 0.674 | 0.088 ± 0.004 | 1.000 ± 0.000 | 0.065 ± 0.009 |
+| 2.0 | 0.633 ± 0.043 | 4.900 ± 0.130 | 122.136 ± 15.413 | 1765.291 ± 47.558 | 41.413 ± 1.099 | 1106.561 ± 29.302 | 0.539 ± 0.016 | 0.000 ± 0.000 | 0.089 ± 0.005 | 0.994 ± 0.002 | 0.057 ± 0.012 |
+| 3.0 | 1.550 ± 0.115 | 7.651 ± 0.346 | 171.575 ± 16.578 | 2747.053 ± 122.252 | 64.665 ± 2.925 | 1727.094 ± 78.040 | 0.613 ± 0.021 | 0.407 ± 0.128 | 0.085 ± 0.003 | 0.986 ± 0.001 | 0.075 ± 0.008 |
+| 4.0 | 3.590 ± 0.108 | 13.770 ± 0.323 | 301.220 ± 22.787 | 4925.162 ± 117.433 | 116.379 ± 2.727 | 3107.344 ± 72.890 | 0.544 ± 0.059 | 0.556 ± 0.255 | 0.089 ± 0.010 | 0.995 ± 0.001 | 0.064 ± 0.010 |
+
+## epoch_len
+
+| epoch_len | δ | HE enc / event | Online µs / event | Offline µs / event | Offline ms / event @2048 | Bytes / event | Macro F1 | Delay (h) | U recovery | Decoy AUC | Linkage |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 900.0 | 0.633 ± 0.043 | 4.900 ± 0.130 | 111.744 ± 8.986 | 1753.734 ± 71.731 | 41.413 ± 1.099 | 1110.402 ± 29.302 | 0.489 ± 0.036 | 0.347 ± 0.105 | 0.093 ± 0.009 | 0.984 ± 0.003 | 0.071 ± 0.003 |
+| 3600.0 | 0.633 ± 0.043 | 4.900 ± 0.130 | 104.307 ± 6.752 | 1756.244 ± 55.934 | 41.413 ± 1.099 | 1106.561 ± 29.302 | 0.539 ± 0.016 | 0.000 ± 0.000 | 0.089 ± 0.005 | 0.994 ± 0.002 | 0.057 ± 0.012 |
+| 14400.0 | 0.633 ± 0.043 | 4.900 ± 0.130 | 119.908 ± 14.705 | 1634.383 ± 139.560 | 41.413 ± 1.099 | 1105.600 ± 29.302 | 0.682 ± 0.083 | 0.222 ± 0.192 | 0.131 ± 0.006 | 0.996 ± 0.002 | 0.102 ± 0.024 |
+
+## k_min
+
+| k_min | δ | HE enc / event | Online µs / event | Offline µs / event | Offline ms / event @2048 | Bytes / event | Macro F1 | Delay (h) | U recovery | Decoy AUC | Linkage | Single-record releases |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.633 ± 0.043 | 4.900 ± 0.130 | 122.160 ± 16.268 | 1689.237 ± 142.413 | 41.413 ± 1.099 | 1106.561 ± 29.302 | 0.539 ± 0.016 | 0.000 ± 0.000 | 0.089 ± 0.005 | 0.994 ± 0.002 | 0.057 ± 0.012 | 52.000 ± 3.464 |
+| 3 | 0.633 ± 0.043 | 4.900 ± 0.130 | 126.823 ± 15.517 | 1760.178 ± 42.927 | 41.413 ± 1.099 | 1106.561 ± 29.302 | 0.539 ± 0.016 | 0.000 ± 0.000 | 0.089 ± 0.005 | 0.994 ± 0.002 | 0.057 ± 0.012 | 0.000 ± 0.000 |
+| 5 | 0.633 ± 0.043 | 4.900 ± 0.130 | 117.608 ± 4.329 | 1716.267 ± 71.483 | 41.413 ± 1.099 | 1106.561 ± 29.302 | 0.539 ± 0.016 | 0.000 ± 0.000 | 0.089 ± 0.005 | 0.994 ± 0.002 | 0.057 ± 0.012 | 0.000 ± 0.000 |
+| 10 | 0.633 ± 0.043 | 4.900 ± 0.130 | 95.737 ± 25.211 | 1367.511 ± 276.475 | 41.413 ± 1.099 | 1106.561 ± 29.302 | 0.539 ± 0.016 | 0.000 ± 0.000 | 0.089 ± 0.005 | 0.994 ± 0.002 | 0.057 ± 0.012 | 0.000 ± 0.000 |
+
+Total time 203s
+part A done in 20s
+  n=    1000 k=    1:     12 vs      12 hashes;     0.02 vs     0.02 ms
+  n=    1000 k=   10:     61 vs     130 hashes;     0.14 vs     0.18 ms
+  n=    1000 k=  100:    264 vs    1294 hashes;     0.73 vs     1.81 ms
+  n=    1000 k= 1000:      0 vs   13120 hashes;     2.97 vs    18.05 ms
+  n=   10000 k=    1:     17 vs      17 hashes;     0.03 vs     0.03 ms
+  n=   10000 k=   10:     99 vs     164 hashes;     0.16 vs     0.25 ms
+  n=   10000 k=  100:    586 vs    1642 hashes;     1.31 vs     2.51 ms
+  n=   10000 k= 1000:   2603 vs   16372 hashes;     7.65 vs    25.47 ms
+  n=  100000 k=    1:     20 vs      20 hashes;     0.03 vs     0.03 ms
+  n=  100000 k=   10:    131 vs     204 hashes;     0.20 vs     0.31 ms
+  n=  100000 k=  100:    904 vs    2051 hashes;     1.81 vs     3.09 ms
+  n=  100000 k= 1000:   5794 vs   20521 hashes;    15.22 vs    31.44 ms
+  n= 1000000 k=    1:     25 vs      25 hashes;     0.04 vs     0.04 ms
+  n= 1000000 k=   10:    159 vs     240 hashes;     0.33 vs     0.36 ms
+  n= 1000000 k=  100:   1254 vs    2427 hashes;     3.07 vs     3.74 ms
+  n= 1000000 k= 1000:   9102 vs   24199 hashes;    26.35 vs    37.40 ms
+# E5 results (synthetic data)
+
+## Part A: manipulation detection
+
+| Manipulation | Detected | Affected record decrypted | Clean run verified |
+|---|---|---|---|
+| modify payload ciphertext | 5/5 | 0/5 | 5/5 |
+| modify HE feature | 5/5 | 0/5 | 5/5 |
+| modify index entry | 5/5 | 0/5 | 5/5 |
+| substitute record | 5/5 | 0/5 | 5/5 |
+| reorder records | 5/5 | 0/5 | 5/5 |
+| cross-epoch splice | 5/5 | 0/5 | 5/5 |
+| rollback checkpoint (replay) | 5/5 | 0/5 | 5/5 |
+| forge checkpoint root | 5/5 | 0/5 | 5/5 |
+| truncate MMR size | 5/5 | 0/5 | 5/5 |
+| forge MMR node | 5/5 | 0/5 | 5/5 |
+| omit requested record | 5/5 | 0/5 | 5/5 |
+| omit search result (limitation) | 0/5 | 0/5 | 5/5 |
+
+Omitted search results: 46 plaintexts silently lost over 5 trials (inclusion proofs cannot detect omission).
+
+## Part B: multiproof vs. separate paths
+
+| n | k | Multiproof hashes | Separate hashes | Multiverify (ms) | Separate (ms) |
+|---|---|---|---|---|---|
+| 1,000 | 1 | 12 | 12 | 0.02 | 0.02 |
+| 1,000 | 10 | 61 | 130 | 0.14 | 0.18 |
+| 1,000 | 100 | 264 | 1,294 | 0.73 | 1.81 |
+| 1,000 | 1000 | 0 | 13,120 | 2.97 | 18.05 |
+| 10,000 | 1 | 17 | 17 | 0.03 | 0.03 |
+| 10,000 | 10 | 99 | 164 | 0.16 | 0.25 |
+| 10,000 | 100 | 586 | 1,642 | 1.31 | 2.51 |
+| 10,000 | 1000 | 2,603 | 16,372 | 7.65 | 25.47 |
+| 100,000 | 1 | 20 | 20 | 0.03 | 0.03 |
+| 100,000 | 10 | 131 | 204 | 0.20 | 0.31 |
+| 100,000 | 100 | 904 | 2,051 | 1.81 | 3.09 |
+| 100,000 | 1000 | 5,794 | 20,521 | 15.22 | 31.44 |
+| 1,000,000 | 1 | 25 | 25 | 0.04 | 0.04 |
+| 1,000,000 | 10 | 159 | 240 | 0.33 | 0.36 |
+| 1,000,000 | 100 | 1,254 | 2,427 | 3.07 | 3.74 |
+| 1,000,000 | 1000 | 9,102 | 24,199 | 26.35 | 37.40 |
+
+## Part C: investigation latency (2048-bit keys)
+
+| Attack | Window | Verified records | Plaintexts | Identity | Latency (ms) | Bytes |
+|---|---|---|---|---|---|---|
+| multi_source | 1 | 12 | 9 | yes | 14.8 | 25,245 |
+| multi_source | 2 | 27 | 19 | yes | 19.2 | 57,431 |
+| multi_source | 2 | 10 | 8 | yes | 1.0 | 23,037 |
+| cred_access | 3 | 62 | 60 | yes | 22.1 | 121,141 |
+| cred_access | 3 | 23 | 13 | yes | 1.8 | 51,072 |
+| multi_source | 3 | 68 | 65 | yes | 2.8 | 132,530 |
+| multi_source | 3 | 43 | 26 | yes | 2.6 | 91,868 |
+| cred_access | 4 | 27 | 17 | yes | 17.6 | 60,424 |
+| exfil | 4 | 41 | 27 | yes | 2.7 | 89,415 |
+| exfil | 4 | 24 | 24 | yes | 1.7 | 52,858 |
+
+Total time 63s
+done: results/*.md

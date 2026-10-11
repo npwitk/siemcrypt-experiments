@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "siemcrypt"
+version = "0.1.0"
+description = "Prototype of SIEMCrypt: privacy-preserving security event analytics over multi-source encrypted logs"
+requires-python = ">=3.11"
+dependencies = [
+    "cryptography>=42",
+    "gmpy2>=2.1",
+    "msgpack>=1.0",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pandas>=2"]
+experiments = ["scikit-learn>=1.4", "scipy>=1.11"]
+baselines = ["tenseal>=0.3"]
+
+[tool.setuptools.packages.find]
+include = ["siemcrypt*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
