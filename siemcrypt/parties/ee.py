@@ -43,6 +43,14 @@ def tier(c: int, gamma: float) -> int:
     return v
 
 
+def _sigmoid(x: float) -> float:
+    """Logistic function, stable for any magnitude of x (math.exp overflows past ~709)."""
+    if x >= 0:
+        return 1.0 / (1.0 + math.exp(-x))
+    ex = math.exp(x)
+    return ex / (1.0 + ex)
+
+
 @dataclass
 class Descriptor:
     """Desc_{u,a}^(e) = (e, T_u, a, S, ell, Prov), eq:alert-descriptor; a=None for
@@ -302,7 +310,7 @@ class EdgeEncryptor:
             n = len(GRAPH_FEATURES)
             S = self._dot(p.theta_g, z[:n]) + self._dot(p.theta_y, z[n:]) + p.theta_h * self._hist_score(p, st.h)
             h_prev = tuple(st.h)
-            st.R = 1.0 / (1.0 + math.exp(-p.kappa * (S - p.Theta)))
+            st.R = _sigmoid(p.kappa * (S - p.Theta))
             st.h = [rho * hv + (1 - rho) * zv for hv, zv in zip(st.h, z)]
             st.prov = self._prune(st.prov | set(refs), horizon)
             self.state[(u, a)] = st

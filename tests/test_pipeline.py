@@ -128,3 +128,9 @@ def test_precomputed_randomizers_cover_ingestion():
     s = SIEMCrypt(replace(CFG, precompute_workers=1), profiles, contexts)
     s.run(events)
     assert s.ee.he.online_randomizers == 0 and s.ee.stats["t_offline"] > 0
+
+
+def test_sigmoid_is_stable_for_extreme_scores():
+    from siemcrypt.parties.ee import _sigmoid
+
+    assert _sigmoid(-1e6) == 0.0 and _sigmoid(1e6) == 1.0 and abs(_sigmoid(0) - 0.5) < 1e-12

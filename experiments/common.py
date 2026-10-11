@@ -82,7 +82,13 @@ def system_epochs(sc: SynthConfig, cfg: Config) -> int:
 def fit_weights(score_logs: list[tuple[list, set]], profiles: list[AttackProfile],
                 history: bool) -> list[AttackProfile]:
     """Logistic regression of theta_g, theta_y and r(h) = theta_r . h per profile.
-    score_logs: (EE score_log, positive (user, class, epoch) set) per development run."""
+    score_logs: (EE score_log, positive (user, class, epoch) set) per development run.
+
+    Real-data features span several orders of magnitude (event counts in the thousands),
+    so they are standardized for fitting and the coefficients mapped back to raw units
+    (w_raw = w_std / sd). The score stays the linear function of the paper; the intercept
+    and centering only shift S, which the calibrated threshold Theta absorbs."""
+    import numpy as np
     from sklearn.linear_model import LogisticRegression
 
     out = []
@@ -93,9 +99,11 @@ def fit_weights(score_logs: list[tuple[list, set]], profiles: list[AttackProfile
         if len(set(y)) < 2:
             out.append(p)
             continue
-        X = [list(z) + (list(h) if history else []) for z, h, _ in rows]
-        m = LogisticRegression(C=1.0, class_weight="balanced", max_iter=10000).fit(X, y)
-        w = [float(v) for v in m.coef_[0]]
+        X = np.array([list(z) + (list(h) if history else []) for z, h, _ in rows], float)
+        sd = X.std(axis=0)
+        sd[sd == 0] = 1.0
+        m = LogisticRegression(C=1.0, class_weight="balanced", max_iter=10000).fit((X - X.mean(axis=0)) / sd, y)
+        w = [float(v) for v in m.coef_[0] / sd]
         nz, ng = len(rows[0][0]), len(p.theta_g)
         out.append(replace(p, theta_g=tuple(w[:ng]), theta_y=tuple(w[ng:nz]), theta_h=1.0,
                            theta_r=tuple(w[nz:]) if history else None))

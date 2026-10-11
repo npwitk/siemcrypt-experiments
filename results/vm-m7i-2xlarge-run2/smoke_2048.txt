@@ -1,0 +1,12 @@
+3806 events in 27.5s (139 ev/s); decoys 0 (delta=0.00); KA decryptions 30
+EE Phase 1-2: online 0.24s (16,138 ev/s), offline randomizers 27.02s; phases phase12 27.36s, phase3 0.09s, phase4 0.00s, phase5 0.00s
+bytes EE->cloud 6,964,780; messages in cloud view 3,854
+
+Ground truth:
+  bf0    brute_force   user052  epochs [6]  -> DETECTED in [6]
+  bf1    brute_force   user058  epochs [4]  -> DETECTED in [4]
+  lns0   low_and_slow  user073  epochs [1, 2, 3, 4, 5]  -> missed
+  lns1   low_and_slow  user045  epochs [1, 2, 3, 4, 5]  -> missed
+  exf0   exfil         user068  epochs [3, 4, 5]  -> DETECTED in [5]
+False-positive (entity, class) pairs: 6 ['user000', 'user000', 'user001', 'user003', 'user052', 'user058']
+Unclassified (screening) alerts for 8 entities
