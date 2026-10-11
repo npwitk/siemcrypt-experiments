@@ -192,13 +192,14 @@ def rules(max_epoch):
     # tuned: one-hour window, smallest frequency within the same alert budget on development data
     devs = [dev_stream(sc, max_epoch) for sc in DEV]
     allowed = math.floor(ALERTS_PER_DAY * sum(n for *_, n in devs) / 24)
+    bad = [attack_entities(ev) for ev, _, _ in devs]
     tuned = []
     for r in default:
         f = 2
         while True:
             rr = replace(r, frequency=f, timeframe=EPOCH)
-            n = sum(len({a for a in rule_alerts(ev, [rr], EPOCH) if a[0] not in attack_entities(ev)})
-                    for ev, _, _ in devs)
+            n = sum(len({a for a in rule_alerts(ev, [rr], EPOCH) if a[0] not in b})
+                    for (ev, _, _), b in zip(devs, bad))
             if n <= allowed:
                 break
             f += 1
