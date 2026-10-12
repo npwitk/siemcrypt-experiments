@@ -134,3 +134,18 @@ def test_sigmoid_is_stable_for_extreme_scores():
     from siemcrypt.parties.ee import _sigmoid
 
     assert _sigmoid(-1e6) == 0.0 and _sigmoid(1e6) == 1.0 and abs(_sigmoid(0) - 0.5) < 1e-12
+
+
+def test_full_he_baseline_releases_equal_siemcrypt():
+    """B3 aggregates masked per-context ciphertexts over the whole epoch: same releases as
+    SG-HEF, with more encryptions per record and more homomorphic additions."""
+    events, _ = generate(SynthConfig(epochs=3, events_per_epoch=300, n_users=40))
+    profiles, contexts = default_profiles_and_contexts()
+    runs = {}
+    for full in (False, True):
+        s = SIEMCrypt(replace(CFG, gamma=2.0, full_he=full), profiles, contexts)
+        runs[full] = (s, s.run(events))
+    (s0, r0), (s1, r1) = runs[False], runs[True]
+    assert [x["y"] for r in r0 for x in r.releases] == [x["y"] for r in r1 for x in r.releases]
+    assert s1.ee.stats["he_enc"] > s0.ee.stats["he_enc"]
+    assert s1.cloud.he_adds > s0.cloud.he_adds

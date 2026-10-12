@@ -48,6 +48,11 @@ python tools/ait_fetch.py              # all 8 scenarios; rerun to resume
 | A3 | No label-free screening |
 | A4 | Persistent tokens (no epoch rotation) |
 | A5 | No minimum support (`k_min=0`) |
+| B3 | Full-HE SIEM: no search scoping; every record carries `Enc(w·x·1[match q])` for every context and the cloud aggregates over the whole epoch (`full_he=True`). Same releases as S, so only cost differs. |
+| B5 | PriSIEM (Coppolino et al., JNCA 2022): TFHE gate-count cost model from the paper's Tables 4-5, gate time measured by `tools/tfhe_gate_bench` (Rust, tfhe-rs) |
+| B7 | EVSEB (Fugkeaw et al., IEEE Access 2025): Boolean searchable encryption with Bloom filters, inverted index, DHT and a quaternary Merkle root (`siemcrypt/baselines/evseb.py`) |
+| B8 | MK-Tree (Saengthong et al., IEEE OJ-CS 2026): ancestor-assisted Merkle verification with DHT certificates and a root-of-roots (`siemcrypt/baselines/mktree.py`) |
+| B1-wazuh | Real Wazuh 4.8 manager with default rules, AIT lines replayed through logtest under libfaketime (`tools/wazuh_setup.sh`, `tools/wazuh_replay.py`) |
 
 Switches live in `siemcrypt/model.py:Config`.
 
@@ -56,6 +61,8 @@ Switches live in `siemcrypt/model.py:Config`.
 |---|---|---|
 | `experiments/e1_accuracy.py` | E1: detection accuracy, low-and-slow sweep, McNemar, threshold-free AUC and recall@FP2 (synthetic) | `results/e1_*` |
 | `experiments/e2_microbench.py` | E2: unit costs of every primitive (2048-bit) | `results/e2_microbench.csv` |
+| `experiments/e2_scoping.py` | E2: SG-HEF (S) vs. full-HE SIEM (B3) as the number of contexts grows | `results/e2_scoping.*` |
+| `experiments/e_baselines.py` | B5, B7, B8 on their own functions: ingestion cost, verification cost, tamper detection, B7 leakage | `results/baselines_*` |
 | `experiments/e3_leakage.py` | E3: frequency analysis, decoy distinguisher, cross-epoch linkage, release attacks (synthetic) | `results/e3_*` |
 | `experiments/e4_tradeoff.py` | E4: sweeps of gamma, epoch length and `k_min` | `results/e4_*` |
 | `experiments/e5_integrity.py` | E5: 12 tampering types, multiproof vs. separate paths, investigation latency | `results/e5_*` |

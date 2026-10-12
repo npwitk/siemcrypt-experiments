@@ -31,7 +31,7 @@ class SIEMCrypt:
         self.ka = KeyAuthority(cfg)
         self.bus.ct_bytes = self.ka.pk_h.ciphertext_bytes()
         self.td = TokenDirectory()
-        self.cloud = CloudSIEM(self.ka, self.bus)
+        self.cloud = CloudSIEM(self.ka, self.bus, cfg.full_he)
         self.ee = EdgeEncryptor(cfg, self.ka, self.td, self.bus, {p.name: p for p in profiles}, contexts)
         self.sa = SecurityAnalyst(self.bus, cfg.default_lookback)
         self.ee.cloud, self.ee.sa = self.cloud, self.sa

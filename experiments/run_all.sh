@@ -18,8 +18,10 @@ python experiments/e2_microbench.py --bits 2048 $Q          # first: E4 reads T_
 python experiments/smoke.py --bits 2048 --workers "$W" | tee results/smoke_2048.txt
 python experiments/e1_accuracy.py --workers "$W" $Q
 python experiments/e3_leakage.py --workers "$W" $Q
+python experiments/e2_scoping.py --workers "$W" $Q          # B3 full-HE vs SG-HEF
 python experiments/e4_tradeoff.py --workers "$W" $Q
 python experiments/e5_integrity.py --workers "$W" --bits 2048 $Q
+python experiments/e_baselines.py $Q                    # B5 PriSIEM, B7 EVSEB, B8 MK-Tree (needs Rust for B5)
 
 # ---- real data: AIT-LDSv2 (text logs only, ~1 GB, fetched once into ~/data/ait-ldsv2)
 if [ -z "${SKIP_AIT:-}" ]; then

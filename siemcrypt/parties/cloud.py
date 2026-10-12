@@ -23,8 +23,9 @@ DIM_IDX = {d: i for i, d in enumerate(DIMS)}
 
 
 class CloudSIEM:
-    def __init__(self, ka: KeyAuthority, bus: Bus):
+    def __init__(self, ka: KeyAuthority, bus: Bus, full_he: bool = False):
         self.ka, self.bus = ka, bus
+        self.full_he = full_he  # B3: aggregate over the whole epoch (no SG-HEF scoping)
         self.he = Paillier(ka.pk_h)
         self.records: dict[tuple, ProtectedRecord] = {}
         self.entries: dict[tuple, IndexEntry] = {}
@@ -79,6 +80,14 @@ class CloudSIEM:
         for q in queries:
             e = q["epoch"]
             Q = self.candidates(e, q["tokens"])
+            if self.full_he:
+                # B3: no index scoping; aggregate the masked slot over every record of the epoch
+                base = q["slot"] * (len(feat_index) + 1)
+                allr = self.by_epoch[e]
+                aggs = {f: self._sum(self.records[r].X[base + feat_index[f]] for r in allr) for f in q["feats"]}
+                realness = self._sum(self.records[r].X[base + len(feat_index)] for r in allr)
+                self._release(out, q, e, Q, aggs, realness)
+                continue
             aggs = {}
             for f in q["feats"]:
                 j = feat_index[f]
@@ -93,12 +102,15 @@ class CloudSIEM:
                 else:
                     aggs[f] = self._sum(self.records[r].X[j] for r in Q)
             realness = self._sum(self.records[r].X0 for r in Q)
-            self.bus.send("cloud", "ka", "release_req", (q["qid"], e, aggs, realness))
-            y = self.ka.release(q["qid"], e, q["policy"], q["threshold"], aggs, realness)
-            self.bus.send("ka", "cloud", "release", y)
-            phi = (len(Q), len({self.entries[r].tokens[3] for r in Q}), len({self.entries[r].bucket for r in Q}))
-            out.append(dict(qid=q["qid"], attack=q["attack"], epoch=e, Q=Q, y=y, phi=phi))
+            self._release(out, q, e, Q, aggs, realness)
         return out
+
+    def _release(self, out: list, q: dict, e: int, Q: set, aggs: dict, realness) -> None:
+        self.bus.send("cloud", "ka", "release_req", (q["qid"], e, aggs, realness))
+        y = self.ka.release(q["qid"], e, q["policy"], q["threshold"], aggs, realness)
+        self.bus.send("ka", "cloud", "release", y)
+        phi = (len(Q), len({self.entries[r].tokens[3] for r in Q}), len({self.entries[r].bucket for r in Q}))
+        out.append(dict(qid=q["qid"], attack=q["attack"], epoch=e, Q=Q, y=y, phi=phi))
 
     # ================================================================ Phase 4: graph
     def phase4(self, epoch: int, Z: list[dict]) -> tuple[list[tuple], float]:

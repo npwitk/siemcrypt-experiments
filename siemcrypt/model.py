@@ -93,4 +93,7 @@ class Config:
     # variants (DS2): SD gamma=2 (decoys), A3 screening=False, A5 k_min=0
     history: bool = True               # A2 when False: one-epoch window, no trusted history
     persistent_tokens: bool = False    # A4 when True: U/R/C/S token keys do not rotate per epoch
+    full_he: bool = False              # B3 when True: no search scoping; every record carries
+                                       # Enc(w * x_f * 1[record matches q]) for every context q and
+                                       # feature f, and the cloud aggregates over the whole epoch
     seed: int | None = None

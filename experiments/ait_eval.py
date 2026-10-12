@@ -214,6 +214,7 @@ def main() -> None:
     ap.add_argument("--parts", default="e1,e3,e2")
     ap.add_argument("--quick", action="store_true", help="first 24 epochs, 1 test scenario, few rates")
     ap.add_argument("--workers", type=int, default=8, help="workers for windowed jobs (injection sweep)")
+    ap.add_argument("--inject-seeds", type=int, default=5, help="repetitions of the injection sweep (E1-B)")
     ap.add_argument("--heavy-workers", type=int, default=3,
                     help="workers for full-scenario jobs; each needs up to ~10 GB (32 GB VM: 3)")
     ap.add_argument("--data", default=str(DATA))
@@ -274,11 +275,12 @@ def main() -> None:
 
             rates = [2, 8, 32] if args.quick else [1, 2, 4, 8, 16, 32]
             spans = [6] if args.quick else [6, 24]
-            seeds = [1] if args.quick else [1, 2]
+            seeds = [1] if args.quick else list(range(1, args.inject_seeds + 1))
             win = 24 if args.quick else 36
             sys_b = [sy for sy in systems if sy != "B2"]  # without decoys, B2 detects exactly like S
-            jobsB = [(sy, params[sy], tests[0], fam, r, sp, win, sd) for sy in sys_b for fam in sorted(INJECT_FAMILIES)
-                     for r in rates for sp in spans for sd in seeds if sp < win]
+            # seed k injects into test scenario k (cycling), so repetitions vary the real background too
+            jobsB = [(sy, params[sy], tests[(sd - 1) % len(tests)], fam, r, sp, win, sd) for sy in sys_b
+                     for fam in sorted(INJECT_FAMILIES) for r in rates for sp in spans for sd in seeds if sp < win]
             resB = list(light.map(w_inject, *zip(*jobsB)))
             write_csv("ait_e1_inject.csv", resB)
             for key, title in (("recall", "recall at the calibrated threshold"),
@@ -316,7 +318,7 @@ def main() -> None:
         ev, _, _ = scenario(tests[0], 6 if args.quick else 24)
         _, contexts = ait_profiles_and_contexts()
         rows = []
-        for v in ("S", "SD"):
+        for v in ("S", "SD", "B3"):
             cfg = config(v, paillier_bits=2048, precompute_workers=args.workers)
             t1 = time.time()
             s = run(cfg, ev, None, contexts)

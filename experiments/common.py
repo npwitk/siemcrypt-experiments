@@ -40,6 +40,7 @@ VARIANTS = {
     "A3": {"screening": False},
     "A4": {"persistent_tokens": True},
     "A5": {"k_min": 0},
+    "B3": {"full_he": True},
 }
 
 

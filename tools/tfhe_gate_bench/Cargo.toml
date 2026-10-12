@@ -1,0 +1,10 @@
+[package]
+name = "tfhe_gate_bench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tfhe = { version = "=0.8.7", features = ["boolean"] }
+
+[profile.release]
+lto = "fat"

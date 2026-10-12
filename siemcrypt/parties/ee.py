@@ -179,6 +179,29 @@ class EdgeEncryptor:
                                 1, None))
         return out
 
+    def _he_per_record(self) -> int:
+        F = len(self.cfg.agg_features)
+        return len(self.contexts) * (F + 1) + 1 if self.cfg.full_he else F + 1
+
+    def _full_he_features(self, p: _Pending) -> tuple:
+        """B3 (full-HE baseline): for every context q, Enc(w * x_f * m_q) for each feature f and
+        Enc((1 - delta) * m_q), where m_q = 1 if the record satisfies q's predicates and w is the
+        source weight (1 if q has none). Laid out as slot q * (|J_AGG| + 1) + j."""
+        out = []
+        for c in self.contexts:
+            m = 1
+            for di, vals in enumerate((c.users, c.resources, c.categories, c.sources)):
+                if vals and p.tokens[di] not in {self.token(DIMS[di], v) for v in vals}:
+                    m = 0
+                    break
+            w = 1
+            if c.source_weights:
+                w = {self.token("S", s): wt for s, wt in c.source_weights.items()}.get(p.tokens[3], 0)
+            for f in self.cfg.agg_features:
+                out.append(self.he.encrypt(self.fp.encode(p.feats.get(f, 0)) * w * m))
+            out.append(self.he.encrypt((1 - p.delta) * m))
+        return tuple(out)
+
     def close_bucket(self) -> None:
         if not self.bucket_events:
             return
@@ -195,14 +218,17 @@ class EdgeEncryptor:
         self.rng.shuffle(batch)  # pi_b: uniformly random permutation
 
         if self.cfg.precompute_workers > 0:
-            self.precompute(len(batch) * (len(self.cfg.agg_features) + 1) - self.he.pool_size())
+            self.precompute(len(batch) * self._he_per_record() - self.he.pool_size())
 
         t0 = time.perf_counter()
         flagged_refs: dict[str, set] = defaultdict(set)
         for p in batch:
             iota = self.mmr.size
             iv, ct = aead_encrypt(self.keys["P"], bytes([p.delta]) + p.payload, aead_ad(e, b))
-            X = tuple(self.he.encrypt(self.fp.encode(p.feats.get(f, 0))) for f in self.cfg.agg_features)
+            if self.cfg.full_he:
+                X = self._full_he_features(p)
+            else:
+                X = tuple(self.he.encrypt(self.fp.encode(p.feats.get(f, 0))) for f in self.cfg.agg_features)
             X0 = self.he.encrypt(1 - p.delta)
             self.stats["he_enc"] += len(X) + 1
             rec = ProtectedRecord(e, iota, iv, ct, X, X0)
@@ -259,14 +285,14 @@ class EdgeEncryptor:
     def make_queries(self) -> list[dict]:
         """Q_q^(e) for every context (eq:protected-query)."""
         qs = []
-        for c in self.contexts:
+        for slot, c in enumerate(self.contexts):
             tok = {}
             for dim, vals in zip(DIMS, (c.users, c.resources, c.categories, c.sources)):
                 if vals:
                     tok[dim] = frozenset(self.token(dim, v) for v in vals)
             weights = {self.token("S", s): w for s, w in c.source_weights.items()}
             q = dict(qid=c.qid, attack=c.attack, epoch=self.epoch, tokens=tok, feats=c.feats,
-                     policy=c.policy, threshold=c.threshold, source_weights=weights)
+                     policy=c.policy, threshold=c.threshold, source_weights=weights, slot=slot)
             qs.append(self.bus.send("ee", "cloud", "query", q))
         return qs
 
