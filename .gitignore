@@ -25,3 +25,4 @@ results/*.txt
 # macOS
 .DS_Store
 /tools/tfhe_gate_bench/target/
+/tools/pairing_bench/target/

@@ -28,4 +28,12 @@ if [ -z "${SKIP_AIT:-}" ]; then
   python tools/ait_fetch.py
   python experiments/ait_eval.py --workers "$W" --heavy-workers "${HEAVY_WORKERS:-3}" $Q
 fi
+
+# ---- published baselines on their own datasets (B4: CSE-CIC-IDS2018, B6: Kyoto 2016)
+if [ -z "${SKIP_EXT:-}" ]; then
+  python tools/cicids2018_fetch.py
+  python experiments/e_b4_wingarz.py $Q
+  python tools/kyoto_fetch.py
+  python experiments/e_b6_ogawa.py
+fi
 echo "done: results/*.md"

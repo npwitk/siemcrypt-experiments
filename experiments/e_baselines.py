@@ -37,6 +37,7 @@ from leakage import aux_distribution, frequency_attack  # noqa: E402
 from siemcrypt.baselines import prisiem  # noqa: E402
 from siemcrypt.baselines.evseb import EVSEB  # noqa: E402
 from siemcrypt.baselines.mktree import MKTree  # noqa: E402
+from siemcrypt.baselines import zhang  # noqa: E402
 from siemcrypt.crypto import mmr  # noqa: E402
 from siemcrypt.data.synth import default_profiles_and_contexts  # noqa: E402
 from siemcrypt.model import Event  # noqa: E402
@@ -51,20 +52,31 @@ def by_epoch(events, epoch_len=3600.0):
     return out
 
 
-def gate_time_us(arg: float | None) -> tuple[float | None, str]:
-    """T_gate from --gate-us, else from running tools/tfhe_gate_bench (Rust, release build)."""
-    if arg:
-        return arg, "given"
-    bench = ROOT / "tools/tfhe_gate_bench"
+def rust_bench(name: str, args: list[str]) -> list[list[str]] | None:
+    """Build and run tools/<name> (Rust, release); returns its CSV rows, or None without Rust."""
+    bench = ROOT / "tools" / name
     try:
         subprocess.run(["cargo", "build", "--release", "-q"], cwd=bench, check=True)
-        out = subprocess.run([str(bench / "target/release/tfhe_gate_bench"), "200"], capture_output=True,
+        out = subprocess.run([str(bench / "target/release" / name), *args], capture_output=True,
                              text=True, check=True).stdout
-        (RESULTS / "tfhe_gate.csv").write_text(out)
-        row = next(r for r in csv.reader(out.splitlines()) if r and r[0] == "T_gate")
-        return float(row[2]), "measured"
-    except (OSError, subprocess.CalledProcessError, StopIteration):
-        return None, "unavailable (install Rust: https://rustup.rs)"
+        (RESULTS / f"{name}.csv").write_text(out)
+        return [r for r in csv.reader(out.splitlines()) if r][1:]
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def gate_time_us(arg: float | None) -> tuple[float | None, str]:
+    """T_gate from --gate-us, else from tools/tfhe_gate_bench."""
+    if arg:
+        return arg, "given"
+    rows = rust_bench("tfhe_gate_bench", ["200"])
+    t = next((float(r[2]) for r in rows or [] if r[0] == "T_gate"), None)
+    return (t, "measured") if t else (None, "unavailable (install Rust: https://rustup.rs)")
+
+
+def pairing_units() -> dict[str, float] | None:
+    rows = rust_bench("pairing_bench", [])
+    return {r[0]: float(r[2]) for r in rows} if rows else None
 
 
 # ============================================================================ Part A
@@ -103,7 +115,7 @@ def _events(n: int, rng: random.Random) -> list[Event]:
             for i in range(n)]
 
 
-def verification(n: int, k: int, seed: int) -> list[dict]:
+def verification(n: int, k: int, seed: int, units: dict | None = None) -> list[dict]:
     rng = random.Random(seed)
     evs = _events(n, rng)
     idx = rng.sample(range(n), k)
@@ -130,6 +142,10 @@ def verification(n: int, k: int, seed: int) -> list[dict]:
     good, bad = mk.verify({(1, "auth", i) for i in idx})
     rows.append(dict(system="B8 MK-Tree", n=n, k=k, hashes=mk.hashes - h0,
                      verify_ms=(time.perf_counter() - t0) * 1e3, ok=not bad))
+    if units:  # B9 audits a random third of the blocks (paper's setting), whatever k is
+        c = zhang.audit_cost_us(max(1, n // 3), 8, units)
+        rows.append(dict(system="B9 Zhang", n=n, k=k, hashes=None,
+                         verify_ms=(c["csp_us"] + c["verify_us"]) / 1e3, ok=True))
     return rows
 
 
@@ -212,6 +228,32 @@ def tamper_matrix(seed: int) -> list[dict]:
     return rows
 
 
+def zhang_detection(seed: int, n: int = 48, audits: int = 20) -> list[dict]:
+    """B9 audits sample l2 = n/3 blocks; detection of one manipulated block is probabilistic
+    and the audit says only "non-integral", not which record."""
+    rng = random.Random(seed)
+    blocks = [rng.randbytes(1024) for _ in range(n)]
+    other = [rng.randbytes(1024) for _ in range(n)]
+    out = []
+
+    def flip(b):
+        return bytes([b[0] ^ 1]) + b[1:]
+    cases = {"modify payload ciphertext": lambda z, i: z.blocks[1].__setitem__(i, flip(z.blocks[1][i])),
+             "substitute record": lambda z, i: z.blocks[1].__setitem__(i, z.blocks[1][(i + 1) % n]),
+             "reorder records": lambda z, i: z.blocks[1].__setitem__(slice(i, i + 2), z.blocks[1][i:i + 2][::-1]),
+             "cross-epoch splice": lambda z, i: z.blocks[1].__setitem__(i, other[i])}
+    for name, f in cases.items():
+        z = zhang.ZhangAudit(s=8)
+        z.upload(1, blocks)
+        i = rng.randrange(n - 1)
+        f(z, i)
+        caught = sum(not z.audit(1, n // 3, f"{seed}-{name}-{a}".encode()) for a in range(audits))
+        touched = 2 if name == "reorder records" else 1
+        out.append(dict(manipulation=name, seed=seed, n=n, l2=n // 3, detected_audits=caught, audits=audits,
+                        predicted=zhang.detection_probability(n, touched, n // 3)))
+    return out
+
+
 # ============================================================================ Part D
 def evseb_leakage(seed: int) -> list[dict]:
     """Per-entity queries every epoch (the S correlation workload) against EVSEB's static
@@ -269,17 +311,25 @@ def main() -> None:
         md.append(f"\nB5 per-event cost uses {prisiem.gates_per_event(3)} gates (3 contexts × (Filter 256 + T-Count 295), "
                   f"PriSIEM Table 5), a lower bound; PriSIEM reports 1-4 tuples/s for its Rule-1 with 1-8 threads.")
 
+    units = pairing_units()
     ns = [1_000, 10_000] if args.quick else [1_000, 10_000, 100_000]
-    rows = [r for n in ns for k in (1, 10, 100, 1000) if k <= n for r in verification(n, k, 1)]
+    rows = [r for n in ns for k in (1, 10, 100, 1000) if k <= n for r in verification(n, k, 1, units)]
     write_csv("baselines_verify.csv", rows)
-    md += ["\n## B. Verifying k records out of n\n", "| n | k | S hashes | S ms | B7 hashes | B7 ms | B8 hashes | B8 ms |",
-           "|---|---|---|---|---|---|---|---|"]
+    md += ["\n## B. Verifying k records out of n\n",
+           "| n | k | S hashes | S ms | B7 hashes | B7 ms | B8 hashes | B8 ms | B9 audit ms |",
+           "|---|---|---|---|---|---|---|---|---|"]
     for n in ns:
         for k in (1, 10, 100, 1000):
             sel = {r["system"]: r for r in rows if r["n"] == n and r["k"] == k}
             if sel:
+                b9 = f"{sel['B9 Zhang']['verify_ms']:.1f}" if "B9 Zhang" in sel else "n/a"
                 md.append(f"| {n:,} | {k} | " + " | ".join(
-                    f"{sel[s]['hashes']:,} | {sel[s]['verify_ms']:.2f}" for s in ("S", "B7 EVSEB", "B8 MK-Tree")) + " |")
+                    f"{sel[s]['hashes']:,} | {sel[s]['verify_ms']:.2f}" for s in ("S", "B7 EVSEB", "B8 MK-Tree"))
+                    + f" | {b9} |")
+    md.append("\nB9 audits a random third of the n blocks whatever k is (the paper's setting); its time is the "
+              "paper's cost formula (Section VII-A) with BN254 unit costs from tools/pairing_bench"
+              + (f" (pairing {units['t_b']:.0f} µs, G1 exponentiation {units['t_x']:.0f} µs)." if units else
+                 " (not available: install Rust)."))
 
     rows = [r for sd in seeds for r in tamper_matrix(sd)]
     write_csv("baselines_tamper.csv", rows)
@@ -288,6 +338,17 @@ def main() -> None:
         sel = [r for r in rows if r["manipulation"] == m]
         cell = lambda k: "n/a" if sel[0][k] is None else f"{sum(r[k] for r in sel)}/{len(sel)}"  # noqa: E731
         md.append(f"| {m} | {cell('B7 EVSEB')} | {cell('B8 MK-Tree')} |")
+
+    zrows = [r for sd in seeds for r in zhang_detection(sd)]
+    write_csv("baselines_tamper_b9.csv", zrows)
+    md += ["\n## C2. B9 (Zhang et al.): share of audits that detect one manipulated record\n",
+           "| Manipulation | Detected / audits | Predicted 1 - (1 - t/n)^l2 |", "|---|---|---|"]
+    for m in dict.fromkeys(r["manipulation"] for r in zrows):
+        sel = [r for r in zrows if r["manipulation"] == m]
+        md.append(f"| {m} | {sum(r['detected_audits'] for r in sel)}/{sum(r['audits'] for r in sel)} | "
+                  f"{sel[0]['predicted']:.2f} |")
+    md.append(f"\nn = {zrows[0]['n']} blocks, l2 = {zrows[0]['l2']}; a failed audit marks the whole epoch file "
+              "non-integral and does not identify the record.")
 
     rows = [r for sd in seeds for r in evseb_leakage(sd)]
     write_csv("baselines_leakage.csv", rows)

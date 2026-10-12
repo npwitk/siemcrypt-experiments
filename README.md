@@ -24,7 +24,7 @@ Every module cites the paper equation it implements (e.g. `eq:mmr-leaf`). A mess
 Python 3.11 or later is required.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev,experiments]"
+pip install -e ".[dev,experiments,baselines]"   # baselines: TenSEAL, PyTorch, LightGBM, py_ecc
 pytest -q
 ```
 
@@ -49,9 +49,12 @@ python tools/ait_fetch.py              # all 8 scenarios; rerun to resume
 | A4 | Persistent tokens (no epoch rotation) |
 | A5 | No minimum support (`k_min=0`) |
 | B3 | Full-HE SIEM: no search scoping; every record carries `Enc(w·x·1[match q])` for every context and the cloud aggregates over the whole epoch (`full_he=True`). Same releases as S, so only cost differs. |
+| B4 | Wingarz et al. (IEEE CNS 2024): square-activation MLP on CKKS-encrypted CSE-CIC-IDS2018 flows, paper's Table V parameters, TenSEAL (`siemcrypt/baselines/wingarz.py`) |
 | B5 | PriSIEM (Coppolino et al., JNCA 2022): TFHE gate-count cost model from the paper's Tables 4-5, gate time measured by `tools/tfhe_gate_bench` (Rust, tfhe-rs) |
+| B6 | Ogawa et al. (IEEE COMPSAC 2025): Gain-guided anonymization (decade bins, service coarsening) with LightGBM and k-anonymity, on Kyoto 2016 (`siemcrypt/baselines/ogawa.py`) |
 | B7 | EVSEB (Fugkeaw et al., IEEE Access 2025): Boolean searchable encryption with Bloom filters, inverted index, DHT and a quaternary Merkle root (`siemcrypt/baselines/evseb.py`) |
 | B8 | MK-Tree (Saengthong et al., IEEE OJ-CS 2026): ancestor-assisted Merkle verification with DHT certificates and a root-of-roots (`siemcrypt/baselines/mktree.py`) |
+| B9 | Zhang et al. (IEEE TC 2025): pairing-based block tags and smart-contract audits on BN254 (`siemcrypt/baselines/zhang.py`; timing from `tools/pairing_bench`) |
 | B1-wazuh | Real Wazuh 4.8 manager with default rules, AIT lines replayed through logtest under libfaketime (`tools/wazuh_setup.sh`, `tools/wazuh_replay.py`) |
 
 Switches live in `siemcrypt/model.py:Config`.
@@ -62,7 +65,9 @@ Switches live in `siemcrypt/model.py:Config`.
 | `experiments/e1_accuracy.py` | E1: detection accuracy, low-and-slow sweep, McNemar, threshold-free AUC and recall@FP2 (synthetic) | `results/e1_*` |
 | `experiments/e2_microbench.py` | E2: unit costs of every primitive (2048-bit) | `results/e2_microbench.csv` |
 | `experiments/e2_scoping.py` | E2: SG-HEF (S) vs. full-HE SIEM (B3) as the number of contexts grows | `results/e2_scoping.*` |
-| `experiments/e_baselines.py` | B5, B7, B8 on their own functions: ingestion cost, verification cost, tamper detection, B7 leakage | `results/baselines_*` |
+| `experiments/e_baselines.py` | B5, B7, B8, B9 on their own functions: ingestion cost, verification cost, tamper detection, B7 leakage | `results/baselines_*` |
+| `experiments/e_b4_wingarz.py` | B4 reproduced on CSE-CIC-IDS2018: accuracy and CKKS cost | `results/b4_wingarz.*` |
+| `experiments/e_b6_ogawa.py` | B6 reproduced on Kyoto 2016: F1 kept and k-anonymity | `results/b6_ogawa.*` |
 | `experiments/e3_leakage.py` | E3: frequency analysis, decoy distinguisher, cross-epoch linkage, release attacks (synthetic) | `results/e3_*` |
 | `experiments/e4_tradeoff.py` | E4: sweeps of gamma, epoch length and `k_min` | `results/e4_*` |
 | `experiments/e5_integrity.py` | E5: 12 tampering types, multiproof vs. separate paths, investigation latency | `results/e5_*` |

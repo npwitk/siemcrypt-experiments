@@ -17,7 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "pandas>=2"]
 experiments = ["scikit-learn>=1.4", "scipy>=1.11"]
-baselines = ["tenseal>=0.3"]
+baselines = ["tenseal>=0.3", "torch>=2.2", "lightgbm>=4", "py_ecc>=7", "pandas>=2", "pyarrow>=14"]
 
 [tool.setuptools.packages.find]
 include = ["siemcrypt*"]
