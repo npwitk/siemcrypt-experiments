@@ -154,12 +154,13 @@ def _profiles(items, cat_map, src_map, cats, srcs):
     return prof
 
 
-def linkage_attack(s: SIEMCrypt) -> dict:
+def linkage_attack(s: SIEMCrypt, max_tokens: int = 2000) -> dict:
     """For consecutive epochs e, e+1: link C and S tokens by volume, build per-entity
     profiles (category and source volumes, total, distinct resources, active buckets) and
     match entity tokens by minimum-cost assignment. Accuracy = fraction of real entities
     active in both epochs whose epoch-e token is matched to their epoch-(e+1) token."""
     from scipy.optimize import linear_sum_assignment
+    from scipy.spatial.distance import cdist
 
     truth = token_truth(s)
     by_ep = entries_by_epoch(s)
@@ -183,11 +184,14 @@ def linkage_attack(s: SIEMCrypt) -> dict:
         cats, srcs = list(cB), list(sB)
         pA = _profiles(A, cmap, smap, cats, srcs)
         pB = _profiles(B, {}, {}, cats, srcs)
-        la, lb = list(pA), list(pB)
+        # the adversary matches only the max_tokens highest-volume tokens per epoch: with decoys,
+        # every decoy record carries its own dummy token, and single-record tokens have no profile
+        la = sorted(pA, key=lambda t: -pA[t][-3])[:max_tokens]
+        lb = sorted(pB, key=lambda t: -pB[t][-3])[:max_tokens]
         MA = np.array([pA[t] for t in la])
         MB = np.array([pB[t] for t in lb])
         scale = np.maximum(np.vstack([MA, MB]).std(axis=0), 1e-9)
-        cost = np.abs((MA[:, None, :] - MB[None, :, :]) / scale).sum(axis=2)
+        cost = cdist(MA / scale, MB / scale, "cityblock")
         ri, ci = linear_sum_assignment(cost)
         match = {la[i]: lb[j] for i, j in zip(ri, ci)}
         accs.append(sum(1 for t, t2 in targets.items() if match.get(t) == t2) / len(targets))
