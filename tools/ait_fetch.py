@@ -64,6 +64,10 @@ class HttpFile(io.RawIOBase):
 
 
 def fetch(scenario: str, out: Path) -> None:
+    done = out / scenario / ".complete"
+    if done.exists():   # no network once fetched (a Zenodo outage stopped a full run)
+        print(f"{scenario}: already fetched", flush=True)
+        return
     z = zipfile.ZipFile(io.BufferedReader(HttpFile(RECORD.format(scenario)), buffer_size=8 << 20))
     members = [i for i in z.infolist() if not i.is_dir() and KEEP.match(i.filename) and not SKIP.match(i.filename)]
     total = sum(i.compress_size for i in members)
@@ -76,6 +80,7 @@ def fetch(scenario: str, out: Path) -> None:
         with z.open(i) as src, open(dst, "wb") as f:
             while chunk := src.read(8 << 20):
                 f.write(chunk)
+    done.write_text("")
 
 
 def main() -> None:

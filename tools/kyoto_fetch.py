@@ -17,7 +17,6 @@ from pathlib import Path
 
 URL = ("https://web.archive.org/web/20250808091743id_/"
        "http://www.takakura.com/Kyoto_data/new_data201704/2015/2015.zip")
-SIZE = 2_640_347_378
 
 
 def main() -> None:
@@ -27,7 +26,7 @@ def main() -> None:
     dest = Path(args.dest).expanduser()
     dest.mkdir(parents=True, exist_ok=True)
     out = dest / "2015.zip"
-    if not (out.exists() and out.stat().st_size == SIZE):
+    if not (out.exists() and zipfile.is_zipfile(out)):   # complete: the central directory is at the end
         subprocess.run(["curl", "-sSfL", "-C", "-", "--retry", "5", "-o", str(out), URL], check=True)
     with zipfile.ZipFile(out) as z:
         names = [n for n in z.namelist() if n.endswith(".txt")]
