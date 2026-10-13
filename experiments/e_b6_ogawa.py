@@ -2,7 +2,7 @@
 privacy-aware anonymization on Kyoto 2016 (Tables III-IV, Section IV-C).
 
 Fetch the data first:  python tools/kyoto_fetch.py
-Usage:  python experiments/e_b6_ogawa.py [--years 2007,2011,2015] [--seeds 3] [--synthetic]
+Usage:  python experiments/e_b6_ogawa.py [--years 2015] [--seeds 3] [--synthetic]
   --synthetic  a generated Kyoto-format table (pipeline test only)
 Writes results/b6_ogawa.csv and b6_ogawa.md.
 """
@@ -47,23 +47,32 @@ def synthetic(n: int = 60_000, seed: int = 0):
     return df
 
 
-def load_year(root: Path, year: int):
+def load_year(root: Path, year: int, day: int = 15):
+    """One day per month (the `day`-th, or the nearest file after it) from the raw yearly zip
+    of takakura.com (tab-separated, 24 fields, no header), kept in time order; the 500-session
+    IP windows are then exact except for the first 500 sessions of each day."""
+    import io
+    import re
+    import zipfile
+
     import pandas as pd
 
-    files = sorted(root.rglob(f"{year}*.parquet"))
-    files = [f for f in files if "valid" not in f.name] or files
-    if not files:
-        raise FileNotFoundError(f"no parquet for {year} under {root}")
-    df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
-    if list(df.columns)[:3] != O.COLS[:3]:
-        if len(df.columns) >= len(O.COLS):
-            df = df.iloc[:, :len(O.COLS)]
-            df.columns = O.COLS
-        else:
-            raise ValueError(f"unexpected columns {list(df.columns)}")
+    zp = root / f"{year}.zip"
+    if not zp.exists():
+        raise FileNotFoundError(f"{zp}: run tools/kyoto_fetch.py first")
+    with zipfile.ZipFile(zp) as z:
+        days = sorted(n for n in z.namelist() if re.search(rf"{year}\d{{4}}\.txt$", n))
+        by_month: dict[str, list[str]] = {}
+        for n in days:
+            by_month.setdefault(re.search(rf"({year}\d\d)(\d\d)\.txt$", n).group(1), []).append(n)
+        pick = [next((n for n in ns if int(n[-6:-4]) >= day), ns[-1]) for _, ns in sorted(by_month.items())]
+        frames = [pd.read_csv(io.BytesIO(z.read(n)), sep="\t", header=None, names=O.COLS, dtype=str,
+                              quoting=3) for n in pick]
+    print(f"{year}: days {', '.join(n.rsplit('/', 1)[-1][:-4] for n in pick)}", flush=True)
+    df = pd.concat(frames, ignore_index=True)
     for c in ("duration", "src_bytes", "dst_bytes", *O.NUMERIC):
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
-    return df.sort_values("start_time", kind="stable").reset_index(drop=True)
+    return df
 
 
 def run_year(df, year, seed: int) -> list[dict]:
@@ -98,8 +107,8 @@ def run_year(df, year, seed: int) -> list[dict]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default="~/data/kyoto2016")
-    ap.add_argument("--years", default="2007,2011,2015")
+    ap.add_argument("--data", default="~/data/kyoto2016-raw")
+    ap.add_argument("--years", default="2015")
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--synthetic", action="store_true")
     args = ap.parse_args()

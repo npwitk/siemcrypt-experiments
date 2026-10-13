@@ -36,23 +36,29 @@ def load(paths: list[Path], max_rows: int | None = None, seed: int = 0):
     """Section IV-B preprocessing. Returns (X float32, y int8, feature names)."""
     import pandas as pd
 
-    frames = []
+    # read in chunks and convert to float32 at once: the 16M-row dataset as pandas strings
+    # (some files repeat the header inside, which makes every column object) exceeds 30 GB
+    Xs, ys, names = [], [], None
     for p in paths:
-        df = pd.read_csv(p, low_memory=False)
-        df = df[df[LABEL] != LABEL]                       # repeated header lines inside some files
-        df = df.drop(columns=[c for c in EXTRA + [TS] if c in df.columns])
-        frames.append(df)
-    df = pd.concat(frames, ignore_index=True)
-    if max_rows and len(df) > max_rows:
-        df = df.sample(max_rows, random_state=seed)
-    y = (df.pop(LABEL).astype(str) != "Benign").to_numpy(np.int8)
-    X = df.apply(pd.to_numeric, errors="coerce").to_numpy(np.float64)
+        for df in pd.read_csv(p, dtype=str, chunksize=500_000):
+            df = df[df[LABEL] != LABEL]                   # repeated header lines inside some files
+            df = df.drop(columns=[c for c in EXTRA + [TS] if c in df.columns])
+            ys.append((df.pop(LABEL) != "Benign").to_numpy(np.int8))
+            if names is None:
+                names = list(df.columns)
+            elif list(df.columns) != names:
+                raise ValueError(f"{p.name}: columns differ from the first file")
+            Xs.append(df.apply(pd.to_numeric, errors="coerce").to_numpy(np.float32))
+    X, y = np.concatenate(Xs), np.concatenate(ys)
+    del Xs, ys
+    if max_rows and len(X) > max_rows:
+        idx = np.sort(np.random.default_rng(seed).choice(len(X), max_rows, replace=False))
+        X, y = X[idx], y[idx]
     ok = np.isfinite(X).all(axis=1)
     X, y = X[ok], y[ok]
-    names = list(df.columns)
-    keep = X.std(axis=0) > 0                              # constant features
+    keep = X.std(axis=0, dtype=np.float64) > 0                              # constant features
     X, names = X[:, keep], [n for n, k in zip(names, keep) if k]
-    return X.astype(np.float32), y, names, float(1 - ok.mean())
+    return X, y, names, float(1 - ok.mean())
 
 
 def drop_correlated(X: np.ndarray, names: list[str], thr: float, sample: int = 1_000_000, seed: int = 0):

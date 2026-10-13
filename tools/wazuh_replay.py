@@ -7,11 +7,15 @@ replaying days of logs in minutes would break them. wazuh-analysisd therefore ru
 libfaketime with an offset read from a file on every clock call, and this script sends one
 event at a time to the logtest socket (synchronous, one session that keeps the correlation
 state), setting the offset so that the manager's clock equals the event's log time.
+The timeframe check reads a clock cached by a thread that ticks every sleep(1); a preloaded
+shim (tools/wazuh_fastsleep.c) makes that 5 ms, and after the log time has advanced by more
+than --sync seconds the replay waits for one tick, so windows are exact to within --sync.
 
-Setup on the evaluation VM (Ubuntu 24.04; once):
+Setup on the evaluation VM (Ubuntu 24.04; once; after a reboot rerun only
+tools/wazuh_faketime_start.sh):
   sudo bash tools/wazuh_setup.sh
 Run (sequential: the faked clock is global to wazuh-analysisd):
-  sudo -E python tools/wazuh_replay.py --scenarios harrison,wardbeck,shaw,wheeler,wilson
+  sudo .venv/bin/python tools/wazuh_replay.py --scenarios harrison,wardbeck,shaw,wheeler,wilson
 Writes results/wazuh_alerts_<scenario>.jsonl (one line per alert) and
 results/wazuh_e1.csv / wazuh_e1.md with the E1-A metrics of "B1-wazuh".
 
@@ -50,6 +54,7 @@ CLASS_GROUPS = {
     "dns_exfil": set(),
 }
 ALERT_LEVEL = 3  # Wazuh's default log_alert_level
+TICK_WAIT = 0.012  # > two ticks of the shortened sleep(1) in wazuh-analysisd
 
 
 class LogTest:
@@ -102,16 +107,19 @@ def set_clock(abs_ts: float) -> None:
     os.replace(tmp, FAKETIME_FILE)
 
 
-def replay(data: Path, name: str, out: Path) -> list[dict]:
+def replay(data: Path, name: str, out: Path, sync: float) -> list[dict]:
     events, truth, meta = load_scenario(data / name)
     from datetime import datetime, timezone
     start = datetime.fromisoformat(meta["start"]).replace(tzinfo=timezone.utc).timestamp()
     lt = LogTest()
     alerts = []
-    t0 = time.time()
+    t0, synced, n_sync = time.time(), None, 0
     with (out / f"wazuh_alerts_{name}.jsonl").open("w") as f:
         for i, ev in enumerate(events):
             set_clock(start + ev.ts)
+            if synced is None or ev.ts - synced > sync:   # let analysisd's cached clock catch up
+                time.sleep(TICK_WAIT)
+                synced, n_sync = ev.ts, n_sync + 1
             line = ev.payload.decode(errors="replace").rstrip("\n")
             res = lt.process(line, LOG_FORMAT.get(ev.src, "syslog"), LOCATION[ev.src])
             rule = res.get("output", {}).get("rule")
@@ -121,9 +129,10 @@ def replay(data: Path, name: str, out: Path) -> list[dict]:
                 alerts.append(a)
                 f.write(json.dumps(a) + "\n")
             if i % 50000 == 0:
-                print(f"  {name}: {i:,}/{len(events):,} events, {len(alerts):,} alerts, {time.time() - t0:.0f}s",
-                      flush=True)
+                print(f"  {name}: {i:,}/{len(events):,} events, {len(alerts):,} alerts, {n_sync:,} syncs, "
+                      f"{time.time() - t0:.0f}s", flush=True)
     lt.close()
+    print(f"  {name}: done, {len(alerts):,} alerts, {time.time() - t0:.0f}s", flush=True)
     return alerts
 
 
@@ -155,7 +164,8 @@ def score(name: str, alerts: list[dict], data: Path) -> list[dict]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--scenarios", default="harrison,wardbeck,shaw,wheeler,wilson")
-    ap.add_argument("--data", default="~/data/ait-ldsv2")
+    ap.add_argument("--data", default=f"~{os.environ.get('SUDO_USER', '')}/data/ait-ldsv2")  # runs under sudo
+    ap.add_argument("--sync", type=float, default=10.0, help="max staleness of analysisd's clock, log seconds")
     ap.add_argument("--score-only", action="store_true", help="re-score saved alert files")
     args = ap.parse_args()
     data, out = Path(args.data).expanduser(), Path(__file__).resolve().parents[1] / "results"
@@ -165,7 +175,7 @@ def main() -> None:
         if args.score_only:
             alerts = [json.loads(x) for x in (out / f"wazuh_alerts_{name}.jsonl").read_text().splitlines()]
         else:
-            alerts = replay(data, name, out)
+            alerts = replay(data, name, out, args.sync)
         rows += score(name, alerts, data)
     from common import write_csv
     write_csv("wazuh_e1.csv", rows)

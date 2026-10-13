@@ -1,33 +1,37 @@
-"""Fetch Kyoto 2016 (for B6, Ogawa et al.) from the AnoShift benchmark release
-(Dragoi et al., NeurIPS 2022 Datasets and Benchmarks; parquet per year), because the
-original site takakura.com/Kyoto_data is not reachable. The 8.1 GB archive is streamed and
-only the requested years are written to ~/data/kyoto2016.
+"""Fetch the raw Kyoto 2016 yearly archive (for B6, Ogawa et al.) into ~/data/kyoto2016-raw.
 
-Usage:  python tools/kyoto_fetch.py [--years 2007,2011,2015]
+takakura.com/Kyoto_data is no longer reachable; the Internet Archive holds a copy of
+new_data201704/2015/2015.zip (2.6 GB; one tab-separated file per day, 24 fields). It is the
+only year archived. The AnoShift benchmark's Kyoto 2016 release is not usable for B6: its
+numeric features are pre-binned and IPs, ports and start times are dropped.
+
+Usage:  python tools/kyoto_fetch.py
 """
 
 from __future__ import annotations
 
 import argparse
 import subprocess
+import zipfile
 from pathlib import Path
 
-URL = "https://storage.googleapis.com/bitdefender_ml_artifacts/anoshift/Kyoto-2016_AnoShift.tar"
+URL = ("https://web.archive.org/web/20250808091743id_/"
+       "http://www.takakura.com/Kyoto_data/new_data201704/2015/2015.zip")
+SIZE = 2_640_347_378
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--years", default="2007,2011,2015")
-    ap.add_argument("--dest", default="~/data/kyoto2016")
+    ap.add_argument("--dest", default="~/data/kyoto2016-raw")
     args = ap.parse_args()
     dest = Path(args.dest).expanduser()
     dest.mkdir(parents=True, exist_ok=True)
-    pats = [f"*{y}*" for y in args.years.split(",")]
-    cmd = f"curl -sSfL {URL} | tar -x -C '{dest}' --wildcards " + " ".join(f"'{p}'" for p in pats)
-    print(cmd, flush=True)
-    subprocess.run(cmd, shell=True, check=True)
-    for p in sorted(dest.rglob("*.parquet")):
-        print(f"{p.stat().st_size / 2**20:8.1f} MB  {p.relative_to(dest)}")
+    out = dest / "2015.zip"
+    if not (out.exists() and out.stat().st_size == SIZE):
+        subprocess.run(["curl", "-sSfL", "-C", "-", "--retry", "5", "-o", str(out), URL], check=True)
+    with zipfile.ZipFile(out) as z:
+        names = [n for n in z.namelist() if n.endswith(".txt")]
+    print(f"{out}: {out.stat().st_size / 2**30:.2f} GB, {len(names)} daily files")
 
 
 if __name__ == "__main__":

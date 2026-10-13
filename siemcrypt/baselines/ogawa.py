@@ -17,8 +17,8 @@ Reimplemented from Sections III-IV:
 Ambiguities resolved here: the duration bins are read as {0, (0, 0.01], (0.01, 0.1], (0.1, 1],
 (1, 10], (10, 100], > 100} (the paper's "0.1 < s <= 0.1" is a typo) and the byte bins' last
 rank as > 1 KB (the paper writes "> 10 KB", leaving (1 KB, 10 KB] unassigned).
-Data: the Kyoto 2016 release of the AnoShift benchmark (Dragoi et al., NeurIPS 2022 D&B),
-fetched by tools/kyoto_fetch.py, because takakura.com is not reachable.
+Data: the raw Kyoto 2016 archive of 2015 (takakura.com, via the Internet Archive), one day per
+month; fetched by tools/kyoto_fetch.py.
 """
 
 from __future__ import annotations
