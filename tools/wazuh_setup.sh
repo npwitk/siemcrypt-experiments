@@ -19,6 +19,9 @@ apt-mark hold wazuh-manager
 gcc -shared -fPIC -O2 -o /var/ossec/lib/wazuh_fastsleep.so "$(dirname "$0")/wazuh_fastsleep.c"
 # longer logtest sessions (the replay keeps one session per scenario)
 sed -i 's|<session_timeout>.*</session_timeout>|<session_timeout>86400</session_timeout>|' /var/ossec/etc/ossec.conf || true
+# the vulnerability detector is not used and its feed updater fills ~35 GB of disk
+sed -i '/<vulnerability-detection>/,/<\/vulnerability-detection>/s|<enabled>yes</enabled>|<enabled>no</enabled>|' \
+  /var/ossec/etc/ossec.conf
 systemctl daemon-reload
 systemctl enable --now wazuh-manager
 sleep 10
