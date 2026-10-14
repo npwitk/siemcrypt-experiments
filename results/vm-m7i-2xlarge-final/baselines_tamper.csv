@@ -1,0 +1,19 @@
+manipulation,seed,B7 EVSEB,B8 MK-Tree
+modify payload ciphertext,1,True,True
+substitute record,1,True,True
+reorder records,1,True,True
+cross-epoch splice,1,True,True
+rewrite record and off-chain proofs,1,True,True
+omit search result,1,False,
+modify payload ciphertext,2,True,True
+substitute record,2,True,True
+reorder records,2,True,True
+cross-epoch splice,2,True,True
+rewrite record and off-chain proofs,2,True,True
+omit search result,2,False,
+modify payload ciphertext,3,True,True
+substitute record,3,True,True
+reorder records,3,True,True
+cross-epoch splice,3,True,True
+rewrite record and off-chain proofs,3,True,True
+omit search result,3,False,

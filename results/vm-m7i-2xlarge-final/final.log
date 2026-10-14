@@ -1,0 +1,740 @@
+=== Tue Oct 13 09:29:14 UTC 2026 run_all at a890b07
+..............................................                           [100%]
+46 passed in 17.25s
+SIEMCrypt microbenchmarks (Paillier 2048-bit)
+  T_H                            0.86 us  SHA-256, 64-byte input
+  T_PRF                          3.42 us  token F_K(H(v)) = HMAC-SHA256(SHA-256(v))
+  T_KDF                          4.25 us  HKDF-SHA256 epoch key
+  T_AES (enc)                    2.11 us  AES-256-GCM, 512-byte payload
+  T_AES (dec)                    1.62 us  AES-256-GCM, 512-byte payload
+  KeyGen                     27903.04 us  Paillier 2048-bit (one-time)
+  T_rand (offline)            9349.99 us  precompute r^N mod N^2
+  T_Enc (online)              9394.76 us  Paillier encryption without precomputation
+  T_Enc                          3.53 us  Paillier encryption with precomputed r^N
+  T_Add                          5.07 us  homomorphic addition (mod N^2 multiplication)
+  T_SMul                        93.95 us  plaintext-ciphertext multiplication, 16-bit weight
+  T_Dec                       2628.01 us  Paillier CRT decryption
+  T_Sig                         30.84 us  Ed25519 sign (checkpoint)
+  T_Ver                         98.28 us  Ed25519 verify (checkpoint)
+  MMR append                     0.85 us  amortized per leaf (n=65536), excl. leaf hash
+  MultiVerify k=1               30.93 us  n=65536; proof=16 hashes (vs 16 for separate paths)
+  MultiVerify k=16             261.39 us  n=65536; proof=180 hashes (vs 256 for separate paths)
+  MultiVerify k=256           2764.26 us  n=65536; proof=1808 hashes (vs 4096 for separate paths)
+  CMS update                     2.91 us  Count-Min update, 5x2719
+
+Ciphertext size: 512 bytes per Paillier ciphertext
+Environment: Linux-7.0.0-1014-aws-x86_64-with-glibc2.39 | Python 3.12.3
+Wrote results/e2_microbench.csv
+
+| Symbol | Operation | Median (µs) |
+|---|---|---|
+| `T_H` | SHA-256, 64-byte input | 0.86 |
+| `T_PRF` | token F_K(H(v)) = HMAC-SHA256(SHA-256(v)) | 3.42 |
+| `T_KDF` | HKDF-SHA256 epoch key | 4.25 |
+| `T_AES (enc)` | AES-256-GCM, 512-byte payload | 2.11 |
+| `T_AES (dec)` | AES-256-GCM, 512-byte payload | 1.62 |
+| `KeyGen` | Paillier 2048-bit (one-time) | 27,903.04 |
+| `T_rand (offline)` | precompute r^N mod N^2 | 9,349.99 |
+| `T_Enc (online)` | Paillier encryption without precomputation | 9,394.76 |
+| `T_Enc` | Paillier encryption with precomputed r^N | 3.53 |
+| `T_Add` | homomorphic addition (mod N^2 multiplication) | 5.07 |
+| `T_SMul` | plaintext-ciphertext multiplication, 16-bit weight | 93.95 |
+| `T_Dec` | Paillier CRT decryption | 2,628.01 |
+| `T_Sig` | Ed25519 sign (checkpoint) | 30.84 |
+| `T_Ver` | Ed25519 verify (checkpoint) | 98.28 |
+| `MMR append` | amortized per leaf (n=65536), excl. leaf hash | 0.85 |
+| `MultiVerify k=1` | n=65536; proof=16 hashes (vs 16 for separate paths) | 30.93 |
+| `MultiVerify k=16` | n=65536; proof=180 hashes (vs 256 for separate paths) | 261.39 |
+| `MultiVerify k=256` | n=65536; proof=1808 hashes (vs 4096 for separate paths) | 2,764.26 |
+| `CMS update` | Count-Min update, 5x2719 | 2.91 |
+3806 events in 27.2s (140 ev/s); decoys 0 (delta=0.00); KA decryptions 30
+EE Phase 1-2: online 0.24s (16,125 ev/s), offline randomizers 26.73s; phases phase12 27.08s, phase3 0.09s, phase4 0.00s, phase5 0.00s
+bytes EE->cloud 6,964,996; messages in cloud view 3,854
+
+Ground truth:
+  bf0    brute_force   user052  epochs [6]  -> DETECTED in [6]
+  bf1    brute_force   user058  epochs [4]  -> DETECTED in [4]
+  lns0   low_and_slow  user073  epochs [1, 2, 3, 4, 5]  -> missed
+  lns1   low_and_slow  user045  epochs [1, 2, 3, 4, 5]  -> missed
+  exf0   exfil         user068  epochs [3, 4, 5]  -> DETECTED in [5]
+False-positive (entity, class) pairs: 6 ['user000', 'user000', 'user001', 'user003', 'user052', 'user058']
+Unclassified (screening) alerts for 8 entities
+calibrated 7 systems in 34s
+part A done in 73s
+part B done in 1034s
+# E1 results (synthetic data; ip-172-31-8-110, Linux-7.0.0-1014-aws-x86_64-with-glibc2.39)
+
+Seeds [1, 2, 3, 4, 5]; target benign FPR 0.005 per (entity, epoch) on development streams.
+
+## Part A: per-class detection (mean ± sd over seeds)
+
+| System | Class | Precision | Recall | F1 | Delay (epochs) |
+|---|---|---|---|---|---|
+| S | cred_access | 0.700 ± 0.046 | 0.600 ± 0.137 | 0.643 ± 0.098 | 0.533 ± 0.767 |
+| S | exfil | 0.383 ± 0.112 | 1.000 ± 0.000 | 0.547 ± 0.117 | 0.000 ± 0.000 |
+| S | multi_source | 0.567 ± 0.091 | 1.000 ± 0.000 | 0.720 ± 0.073 | 0.000 ± 0.000 |
+| SD | cred_access | 0.533 ± 0.075 | 0.500 ± 0.000 | 0.514 ± 0.032 | 0.000 ± 0.000 |
+| SD | exfil | 0.400 ± 0.091 | 1.000 ± 0.000 | 0.567 ± 0.091 | 0.000 ± 0.000 |
+| SD | multi_source | 0.348 ± 0.088 | 1.000 ± 0.000 | 0.511 ± 0.091 | 0.000 ± 0.000 |
+| B2 | cred_access | 0.700 ± 0.046 | 0.600 ± 0.137 | 0.643 ± 0.098 | 0.533 ± 0.767 |
+| B2 | exfil | 0.383 ± 0.112 | 1.000 ± 0.000 | 0.547 ± 0.117 | 0.000 ± 0.000 |
+| B2 | multi_source | 0.567 ± 0.091 | 1.000 ± 0.000 | 0.720 ± 0.073 | 0.000 ± 0.000 |
+| A2 | cred_access | 0.660 ± 0.106 | 1.000 ± 0.000 | 0.791 ± 0.080 | 0.100 ± 0.137 |
+| A2 | exfil | 0.433 ± 0.091 | 1.000 ± 0.000 | 0.600 ± 0.091 | 0.000 ± 0.000 |
+| A2 | multi_source | 0.633 ± 0.075 | 1.000 ± 0.000 | 0.773 ± 0.060 | 0.000 ± 0.000 |
+| A3 | cred_access | 0.700 ± 0.046 | 0.600 ± 0.137 | 0.643 ± 0.098 | 0.533 ± 0.767 |
+| A3 | exfil | 0.383 ± 0.112 | 1.000 ± 0.000 | 0.547 ± 0.117 | 0.000 ± 0.000 |
+| A3 | multi_source | 0.567 ± 0.091 | 1.000 ± 0.000 | 0.720 ± 0.073 | 0.000 ± 0.000 |
+| B1-default | cred_access | 1.000 ± 0.000 | 0.500 ± 0.000 | 0.667 ± 0.000 | 0.000 ± 0.000 |
+| B1-default | exfil | 0.000 ± 0.000 | 0.000 ± 0.000 | 0.000 ± 0.000 | n/a |
+| B1-default | multi_source | 0.000 ± 0.000 | 0.000 ± 0.000 | 0.000 ± 0.000 | n/a |
+| B1-tuned | cred_access | 0.723 ± 0.088 | 0.900 ± 0.137 | 0.799 ± 0.095 | 0.933 ± 0.557 |
+| B1-tuned | exfil | 0.700 ± 0.274 | 1.000 ± 0.000 | 0.800 ± 0.183 | 0.000 ± 0.000 |
+| B1-tuned | multi_source | 0.000 ± 0.000 | 0.000 ± 0.000 | 0.000 ± 0.000 | n/a |
+
+| System | Macro F1 |
+|---|---|
+| S | 0.637 ± 0.049 |
+| SD | 0.531 ± 0.031 |
+| B2 | 0.637 ± 0.049 |
+| A2 | 0.721 ± 0.041 |
+| A3 | 0.637 ± 0.049 |
+| B1-default | 0.222 ± 0.000 |
+| B1-tuned | 0.533 ± 0.090 |
+
+## Threshold-free comparison (independent of the calibrated operating point)
+
+AUC over (entity, epoch) scores; recall@FP2 = incident recall when exactly two benign entities are allowed to alert. B1 scores are the largest rule window count.
+
+| System | cred_access AUC | cred_access recall@FP2 | exfil AUC | exfil recall@FP2 | multi_source AUC | multi_source recall@FP2 |
+|---|---|---|---|---|---|---|
+| S | 0.951 ± 0.020 | 1.000 ± 0.000 | 1.000 ± 0.000 | 1.000 ± 0.000 | 0.996 ± 0.003 | 1.000 ± 0.000 |
+| SD | 0.934 ± 0.015 | 0.900 ± 0.224 | 1.000 ± 0.000 | 1.000 ± 0.000 | 0.997 ± 0.002 | 1.000 ± 0.000 |
+| B2 | 0.951 ± 0.020 | 1.000 ± 0.000 | 1.000 ± 0.000 | 1.000 ± 0.000 | 0.996 ± 0.003 | 1.000 ± 0.000 |
+| A2 | 0.959 ± 0.013 | 1.000 ± 0.000 | 1.000 ± 0.000 | 1.000 ± 0.000 | 0.984 ± 0.006 | 1.000 ± 0.000 |
+| A3 | 0.951 ± 0.020 | 1.000 ± 0.000 | 1.000 ± 0.000 | 1.000 ± 0.000 | 0.996 ± 0.003 | 1.000 ± 0.000 |
+| B1-default | 0.717 ± 0.107 | 0.650 ± 0.224 | 0.977 ± 0.015 | 0.800 ± 0.447 | 0.803 ± 0.136 | 0.100 ± 0.224 |
+| B1-tuned | 0.949 ± 0.012 | 1.000 ± 0.000 | 0.999 ± 0.001 | 1.000 ± 0.000 | 0.943 ± 0.011 | 0.800 ± 0.447 |
+
+## McNemar (exact) of S vs. each system on identical incidents, Holm-adjusted
+
+| System | S only | system only | p | p (Holm) |
+|---|---|---|---|---|
+| A2 | 0 | 8 | 0.00781 | 0.0391 |
+| A3 | 0 | 0 | 1 | 1 |
+| B1-default | 17 | 0 | 1.53e-05 | 9.16e-05 |
+| B1-tuned | 11 | 7 | 0.481 | 1 |
+| B2 | 0 | 0 | 1 | 1 |
+| SD | 2 | 0 | 0.5 | 1 |
+
+## Screening path (S has screening; A3 does not)
+
+| System | Unclassified alerts / run | Entities / run | Attacker entities / run | Incidents hit by screening | Found only by screening |
+|---|---|---|---|---|---|
+| S | 24.2 | 16.0 | 2.6 | 13/35 | 0 |
+| A3 | 0.0 | 0.0 | 0.0 | 0/35 | 0 |
+
+## Part B: low-and-slow, recall at the calibrated threshold (mean over seeds) by rate r per epoch
+
+
+Span 3 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.07 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| SD | 0.00 | 0.00 | 0.00 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B2 | 0.00 | 0.00 | 0.07 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| A2 | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 0.00 | 0.00 | 0.87 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+Span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| SD | 0.00 | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B2 | 0.00 | 0.00 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| A2 | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 0.00 | 0.00 | 0.93 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+Span 12 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.93 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| SD | 0.00 | 0.00 | 0.13 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B2 | 0.00 | 0.00 | 0.93 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| A2 | 0.00 | 0.07 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+## Part B: low-and-slow, falsely alerted benign entities at the calibrated threshold (mean over seeds) by rate r per epoch
+
+
+Span 3 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 1.40 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 |
+| SD | 1.60 | 1.40 | 1.60 | 1.60 | 1.40 | 1.40 | 1.60 | 1.80 |
+| B2 | 1.40 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 |
+| A2 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 |
+
+Span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 |
+| SD | 1.00 | 1.20 | 1.80 | 1.60 | 1.60 | 2.00 | 1.40 | 2.00 |
+| B2 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 | 1.20 |
+| A2 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 |
+
+Span 12 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 1.20 | 1.20 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| SD | 1.60 | 1.40 | 1.60 | 1.80 | 2.20 | 2.00 | 2.00 | 2.40 |
+| B2 | 1.20 | 1.20 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| A2 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 | 1.60 |
+
+## Part B: low-and-slow, recall@FP2 (threshold-free) (mean over seeds) by rate r per epoch
+
+
+Span 3 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.00 | 0.07 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| SD | 0.00 | 0.00 | 0.47 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B2 | 0.00 | 0.07 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| A2 | 0.00 | 0.07 | 0.87 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.07 | 0.27 | 0.67 | 0.73 | 0.93 | 1.00 |
+| B1-tuned | 0.00 | 0.13 | 0.93 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+Span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| SD | 0.00 | 0.07 | 0.73 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B2 | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| A2 | 0.00 | 0.00 | 0.93 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.13 | 0.40 | 0.60 | 0.93 | 1.00 | 1.00 |
+| B1-tuned | 0.00 | 0.27 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+Span 12 epochs
+
+| System | r=1 | r=2 | r=4 | r=6 | r=8 | r=12 | r=16 | r=20 |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.00 | 0.13 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| SD | 0.00 | 0.20 | 0.73 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B2 | 0.00 | 0.13 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| A2 | 0.00 | 0.13 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-default | 0.00 | 0.13 | 0.33 | 0.73 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-tuned | 0.00 | 0.40 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+Total time 1035s
+# E3 results (synthetic data)
+
+Seeds [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; mean ± sd.
+
+## Token attacks (a)-(c)
+
+| System | δ | U tokens recovered | U volume recovered | R tokens recovered | R volume recovered | Decoy AUC | Linkage acc. | Linkage chance |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.000 ± 0.000 | 0.089 ± 0.011 | 0.467 ± 0.034 | 0.030 ± 0.008 | 0.025 ± 0.010 | n/a | 0.081 ± 0.010 | 0.014 ± 0.000 |
+| SD | 0.647 ± 0.042 | 0.083 ± 0.011 | 0.461 ± 0.027 | 0.027 ± 0.009 | 0.028 ± 0.012 | 0.994 ± 0.002 | 0.073 ± 0.008 | 0.003 ± 0.000 |
+| A4 | 0.000 ± 0.000 | 0.135 ± 0.010 | 0.564 ± 0.016 | 0.034 ± 0.014 | 0.033 ± 0.016 | n/a | 1.000 ± 0.000 | 0.014 ± 0.000 |
+| SD+A4 | 0.647 ± 0.042 | 0.125 ± 0.014 | 0.549 ± 0.025 | 0.033 ± 0.012 | 0.035 ± 0.016 | 0.994 ± 0.002 | 1.000 ± 0.000 | 0.003 ± 0.000 |
+
+## Release attacks (d), per run
+
+| System | Per-entity releases | Single-record VALUE releases | Downgraded to DECISION | Repeated request refused | Differencing recovered (epochs) |
+|---|---|---|---|---|---|
+| S | 640 | 0.000 ± 0.000 | 618.400 ± 1.647 | 10/10 | 8.000 ± 0.000 of 8 |
+| A5 | 640 | 56.900 ± 5.065 | 0.000 ± 0.000 | 10/10 | 8.000 ± 0.000 of 8 |
+
+Total time 72s
+# E2: SG-HEF (S) vs. full-HE SIEM (B3)
+
+Synthetic test stream, seeds [1, 2, 3]; K = number of correlation contexts. Releases are identical (tested); only cost differs. 2048-bit times are predicted from E2's T_rand and T_Add.
+
+| System | K | HE enc / event | Bytes / event | Offline ms / event @2048 | HE additions / epoch | Phase 3 ms / epoch @2048 |
+|---|---|---|---|---|---|---|
+| S | 3 | 3.000 ± 0.000 | 678.042 ± 0.020 | 28.050 ± 0.000 | 212.556 ± 1.953 | 1.078 ± 0.010 |
+| B3 | 3 | 10.000 ± 0.000 | 1574.042 ± 0.020 | 93.500 ± 0.000 | 3716.000 ± 0.000 | 18.844 ± 0.000 |
+| S | 12 | 3.000 ± 0.000 | 680.678 ± 0.020 | 28.050 ± 0.000 | 887.472 ± 3.555 | 4.500 ± 0.018 |
+| B3 | 12 | 37.000 ± 0.000 | 5032.678 ± 0.020 | 345.950 ± 0.000 | 20438.000 ± 0.000 | 103.641 ± 0.000 |
+| S | 48 | 3.000 ± 0.000 | 691.274 ± 0.020 | 28.050 ± 0.000 | 3239.972 ± 10.002 | 16.430 ± 0.051 |
+| B3 | 48 | 145.000 ± 0.000 | 18867.274 ± 0.020 | 1355.749 ± 0.000 | 87326.000 ± 0.000 | 442.830 ± 0.000 |
+
+Total time 298s
+calibrated 12 settings in 108s
+# E4 results (synthetic data, 512-bit keys unless noted)
+
+Seeds [1, 2, 3]; one-at-a-time sweeps around gamma=1 (no decoys), epoch=60 min, k_min=3.
+2048-bit offline cost is predicted from E2's T_rand when results/e2_microbench.csv is a 2048-bit run.
+
+
+## gamma
+
+| gamma | δ | HE enc / event | Online µs / event | Offline µs / event | Offline ms / event @2048 | Bytes / event | Macro F1 | Delay (h) | U recovery | Decoy AUC | Linkage |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1.0 | 0.000 ± 0.000 | 3.000 ± 0.000 | 74.562 ± 0.509 | 1254.791 ± 6.915 | 28.050 ± 0.000 | 678.042 ± 0.020 | 0.666 ± 0.037 | 0.185 ± 0.321 | 0.090 ± 0.008 | n/a | 0.080 ± 0.008 |
+| 1.5 | 0.285 ± 0.031 | 3.854 ± 0.093 | 111.197 ± 9.137 | 1600.806 ± 30.238 | 36.036 ± 0.867 | 870.701 ± 20.904 | 0.507 ± 0.045 | 0.389 ± 0.674 | 0.088 ± 0.004 | 1.000 ± 0.000 | 0.064 ± 0.005 |
+| 2.0 | 0.633 ± 0.043 | 4.900 ± 0.130 | 142.669 ± 19.984 | 2035.590 ± 49.490 | 45.814 ± 1.216 | 1106.619 ± 29.302 | 0.539 ± 0.016 | 0.000 ± 0.000 | 0.089 ± 0.005 | 0.994 ± 0.002 | 0.059 ± 0.011 |
+| 3.0 | 1.550 ± 0.115 | 7.651 ± 0.346 | 199.164 ± 11.518 | 3177.509 ± 127.927 | 71.537 ± 3.235 | 1727.152 ± 78.040 | 0.613 ± 0.021 | 0.407 ± 0.128 | 0.085 ± 0.003 | 0.986 ± 0.001 | 0.076 ± 0.006 |
+| 4.0 | 3.590 ± 0.108 | 13.770 ± 0.323 | 370.916 ± 10.652 | 5701.679 ± 104.667 | 128.746 ± 3.017 | 3107.402 ± 72.890 | 0.544 ± 0.059 | 0.556 ± 0.255 | 0.089 ± 0.010 | 0.995 ± 0.001 | 0.066 ± 0.011 |
+
+## epoch_len
+
+| epoch_len | δ | HE enc / event | Online µs / event | Offline µs / event | Offline ms / event @2048 | Bytes / event | Macro F1 | Delay (h) | U recovery | Linkage |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 900.0 | 0.000 ± 0.000 | 3.000 ± 0.000 | 78.001 ± 5.520 | 1251.554 ± 3.361 | 28.050 ± 0.000 | 682.058 ± 0.020 | 0.634 ± 0.041 | 0.410 ± 0.043 | 0.096 ± 0.009 | 0.086 ± 0.003 |
+| 3600.0 | 0.000 ± 0.000 | 3.000 ± 0.000 | 78.621 ± 5.912 | 1246.005 ± 3.854 | 28.050 ± 0.000 | 678.042 ± 0.020 | 0.666 ± 0.037 | 0.185 ± 0.321 | 0.090 ± 0.008 | 0.080 ± 0.008 |
+| 14400.0 | 0.000 ± 0.000 | 3.000 ± 0.000 | 84.124 ± 8.097 | 1250.543 ± 2.452 | 28.050 ± 0.000 | 677.039 ± 0.020 | 0.691 ± 0.115 | 0.222 ± 0.192 | 0.124 ± 0.009 | 0.125 ± 0.013 |
+
+## k_min
+
+| k_min | δ | HE enc / event | Online µs / event | Offline µs / event | Offline ms / event @2048 | Bytes / event | Macro F1 | Delay (h) | U recovery | Linkage | Single-record releases |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.000 ± 0.000 | 3.000 ± 0.000 | 78.417 ± 7.352 | 1249.521 ± 9.393 | 28.050 ± 0.000 | 678.042 ± 0.020 | 0.666 ± 0.037 | 0.185 ± 0.321 | 0.090 ± 0.008 | 0.080 ± 0.008 | 52.000 ± 3.464 |
+| 3 | 0.000 ± 0.000 | 3.000 ± 0.000 | 88.207 ± 6.490 | 1248.084 ± 9.022 | 28.050 ± 0.000 | 678.042 ± 0.020 | 0.666 ± 0.037 | 0.185 ± 0.321 | 0.090 ± 0.008 | 0.080 ± 0.008 | 0.000 ± 0.000 |
+| 5 | 0.000 ± 0.000 | 3.000 ± 0.000 | 80.925 ± 15.897 | 1224.623 ± 46.392 | 28.050 ± 0.000 | 678.042 ± 0.020 | 0.666 ± 0.037 | 0.185 ± 0.321 | 0.090 ± 0.008 | 0.080 ± 0.008 | 0.000 ± 0.000 |
+| 10 | 0.000 ± 0.000 | 3.000 ± 0.000 | 86.691 ± 0.953 | 1245.918 ± 2.512 | 28.050 ± 0.000 | 678.042 ± 0.020 | 0.666 ± 0.037 | 0.185 ± 0.321 | 0.090 ± 0.008 | 0.080 ± 0.008 | 0.000 ± 0.000 |
+
+Total time 193s
+part A done in 14s
+  n=    1000 k=    1:     12 vs      12 hashes;     0.02 vs     0.02 ms
+  n=    1000 k=   10:     61 vs     130 hashes;     0.15 vs     0.21 ms
+  n=    1000 k=  100:    264 vs    1294 hashes;     0.84 vs     2.03 ms
+  n=    1000 k= 1000:      0 vs   13120 hashes;     3.26 vs    20.38 ms
+  n=   10000 k=    1:     17 vs      17 hashes;     0.03 vs     0.03 ms
+  n=   10000 k=   10:     99 vs     164 hashes;     0.17 vs     0.28 ms
+  n=   10000 k=  100:    586 vs    1642 hashes;     1.44 vs     2.74 ms
+  n=   10000 k= 1000:   2603 vs   16372 hashes;     8.39 vs    27.95 ms
+  n=  100000 k=    1:     20 vs      20 hashes;     0.03 vs     0.03 ms
+  n=  100000 k=   10:    131 vs     204 hashes;     0.23 vs     0.37 ms
+  n=  100000 k=  100:    904 vs    2051 hashes;     2.02 vs     3.46 ms
+  n=  100000 k= 1000:   5794 vs   20521 hashes;    17.27 vs    35.50 ms
+  n= 1000000 k=    1:     25 vs      25 hashes;     0.04 vs     0.04 ms
+  n= 1000000 k=   10:    159 vs     240 hashes;     0.35 vs     0.42 ms
+  n= 1000000 k=  100:   1254 vs    2427 hashes;     3.43 vs     4.22 ms
+  n= 1000000 k= 1000:   9102 vs   24199 hashes;    30.28 vs    42.62 ms
+# E5 results (synthetic data)
+
+## Part A: manipulation detection
+
+| Manipulation | Detected | Affected record decrypted | Clean run verified |
+|---|---|---|---|
+| modify payload ciphertext | 5/5 | 0/5 | 5/5 |
+| modify HE feature | 5/5 | 0/5 | 5/5 |
+| modify index entry | 5/5 | 0/5 | 5/5 |
+| substitute record | 5/5 | 0/5 | 5/5 |
+| reorder records | 5/5 | 0/5 | 5/5 |
+| cross-epoch splice | 5/5 | 0/5 | 5/5 |
+| rollback checkpoint (replay) | 5/5 | 0/5 | 5/5 |
+| forge checkpoint root | 5/5 | 0/5 | 5/5 |
+| truncate MMR size | 5/5 | 0/5 | 5/5 |
+| forge MMR node | 5/5 | 0/5 | 5/5 |
+| omit requested record | 5/5 | 0/5 | 5/5 |
+| omit search result (limitation) | 0/5 | 0/5 | 5/5 |
+
+Omitted search results: 47 plaintexts silently lost over 5 trials (inclusion proofs cannot detect omission).
+
+## Part B: multiproof vs. separate paths
+
+| n | k | Multiproof hashes | Separate hashes | Multiverify (ms) | Separate (ms) |
+|---|---|---|---|---|---|
+| 1,000 | 1 | 12 | 12 | 0.02 | 0.02 |
+| 1,000 | 10 | 61 | 130 | 0.15 | 0.21 |
+| 1,000 | 100 | 264 | 1,294 | 0.84 | 2.03 |
+| 1,000 | 1000 | 0 | 13,120 | 3.26 | 20.38 |
+| 10,000 | 1 | 17 | 17 | 0.03 | 0.03 |
+| 10,000 | 10 | 99 | 164 | 0.17 | 0.28 |
+| 10,000 | 100 | 586 | 1,642 | 1.44 | 2.74 |
+| 10,000 | 1000 | 2,603 | 16,372 | 8.39 | 27.95 |
+| 100,000 | 1 | 20 | 20 | 0.03 | 0.03 |
+| 100,000 | 10 | 131 | 204 | 0.23 | 0.37 |
+| 100,000 | 100 | 904 | 2,051 | 2.02 | 3.46 |
+| 100,000 | 1000 | 5,794 | 20,521 | 17.27 | 35.50 |
+| 1,000,000 | 1 | 25 | 25 | 0.04 | 0.04 |
+| 1,000,000 | 10 | 159 | 240 | 0.35 | 0.42 |
+| 1,000,000 | 100 | 1,254 | 2,427 | 3.43 | 4.22 |
+| 1,000,000 | 1000 | 9,102 | 24,199 | 30.28 | 42.62 |
+
+## Part C: investigation latency (2048-bit keys)
+
+| Attack | Window | Verified records | Plaintexts | Identity | Latency (ms) | Bytes |
+|---|---|---|---|---|---|---|
+| multi_source | 2 | 19 | 19 | yes | 22.4 | 40,797 |
+| multi_source | 2 | 8 | 8 | yes | 0.9 | 18,796 |
+| cred_access | 3 | 60 | 60 | yes | 14.7 | 115,343 |
+| multi_source | 3 | 26 | 26 | yes | 2.0 | 56,556 |
+| multi_source | 3 | 65 | 65 | yes | 2.8 | 124,696 |
+| multi_source | 4 | 37 | 37 | yes | 13.0 | 80,022 |
+| cred_access | 5 | 61 | 61 | yes | 13.8 | 118,590 |
+| exfil | 5 | 36 | 36 | yes | 2.9 | 78,367 |
+| multi_source | 5 | 41 | 41 | yes | 3.2 | 89,533 |
+| cred_access | 6 | 60 | 60 | yes | 14.3 | 116,739 |
+
+Total time 46s
+warning: unused `ark_ec::short_weierstrass::Projective` that must be used
+  --> src/main.rs:29:79
+   |
+29 |         ("t_x", "G1 exponentiation (scalar multiplication)", median(400, || { black_box(p * black_box(b)); })),
+   |                                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_must_use)]` (part of `#[warn(unused)]`) on by default
+help: use `let _ = ...` to ignore the resulting value
+   |
+29 |         ("t_x", "G1 exponentiation (scalar multiplication)", median(400, || { let _ = black_box(p * black_box(b)); })),
+   |                                                                               +++++++
+
+warning: unused `ark_ec::short_weierstrass::Projective` that must be used
+  --> src/main.rs:30:73
+   |
+30 |         ("t_g", "G1 multiplication (point addition)", median(4000, || { black_box(black_box(p) + black_box(q)); })),
+   |                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: use `let _ = ...` to ignore the resulting value
+   |
+30 |         ("t_g", "G1 multiplication (point addition)", median(4000, || { let _ = black_box(black_box(p) + black_box(q)); })),
+   |                                                                         +++++++
+
+warning: unused `PairingOutput` that must be used
+  --> src/main.rs:31:54
+   |
+31 |         ("t_b", "bilinear pairing", median(200, || { black_box(Bn254::pairing(pa, hb)); })),
+   |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: use `let _ = ...` to ignore the resulting value
+   |
+31 |         ("t_b", "bilinear pairing", median(200, || { let _ = black_box(Bn254::pairing(pa, hb)); })),
+   |                                                      +++++++
+
+# Published baselines: B5 PriSIEM, B7 EVSEB, B8 MK-Tree
+
+Seeds [1, 2, 3]. TFHE gate time for B5: n/a (unavailable (install Rust: https://rustup.rs)).
+
+## A. Ingestion on the synthetic test stream
+
+| System | µs / event | Bytes / event | Work per event |
+|---|---|---|---|
+| S | 655.810 ± 2.443 | 678.042 ± 0.020 | 512-bit Paillier; see E2 for 2048-bit |
+| B7 EVSEB | 36.360 ± 0.396 | 223.491 ± 0.030 | AES, 4 keyword PRFs, Bloom, DHT, quaternary Merkle |
+| B8 MK-Tree | 140.529 ± 1.533 | 219.425 ± 0.039 | AEAD, Ed25519 sign + verify, binary Merkle, certificates |
+
+## B. Verifying k records out of n
+
+| n | k | S hashes | S ms | B7 hashes | B7 ms | B8 hashes | B8 ms | B9 audit ms |
+|---|---|---|---|---|---|---|---|---|
+| 1,000 | 1 | 12 | 0.06 | 335 | 1.58 | 13 | 0.17 | 52.7 |
+| 1,000 | 10 | 83 | 0.20 | 344 | 1.56 | 115 | 1.71 | 52.7 |
+| 1,000 | 100 | 462 | 0.88 | 434 | 1.56 | 612 | 11.40 | 52.7 |
+| 1,000 | 1000 | 1,999 | 4.26 | 1,334 | 0.94 | 3,051 | 103.80 | 52.7 |
+| 10,000 | 1 | 15 | 0.06 | 3,337 | 15.65 | 17 | 0.17 | 508.3 |
+| 10,000 | 10 | 111 | 0.24 | 3,346 | 15.93 | 145 | 1.18 | 508.3 |
+| 10,000 | 100 | 783 | 1.57 | 3,436 | 16.02 | 915 | 11.04 | 508.3 |
+| 10,000 | 1000 | 4,615 | 9.82 | 4,336 | 15.63 | 5,651 | 106.90 | 508.3 |
+| 100,000 | 1 | 22 | 0.07 | 33,338 | 168.07 | 20 | 0.22 | 5065.0 |
+| 100,000 | 10 | 152 | 4.02 | 33,347 | 168.31 | 180 | 1.31 | 5065.0 |
+| 100,000 | 100 | 1,134 | 2.07 | 33,437 | 167.12 | 1,268 | 14.66 | 5065.0 |
+| 100,000 | 1000 | 7,812 | 17.90 | 34,337 | 169.27 | 8,854 | 113.61 | 5065.0 |
+
+B9 audits a random third of the n blocks whatever k is (the paper's setting); its time is the paper's cost formula (Section VII-A) with BN254 unit costs from tools/pairing_bench (pairing 922 µs, G1 exponentiation 75 µs).
+
+## C. Manipulation detected (S: see E5)
+
+| Manipulation | B7 EVSEB | B8 MK-Tree |
+|---|---|---|
+| modify payload ciphertext | 3/3 | 3/3 |
+| substitute record | 3/3 | 3/3 |
+| reorder records | 3/3 | 3/3 |
+| cross-epoch splice | 3/3 | 3/3 |
+| rewrite record and off-chain proofs | 3/3 | 3/3 |
+| omit search result | 0/3 | n/a |
+
+## C2. B9 (Zhang et al.): share of audits that detect one manipulated record
+
+| Manipulation | Detected / audits | Predicted 1 - (1 - t/n)^l2 |
+|---|---|---|
+| modify payload ciphertext | 22/60 | 0.29 |
+| substitute record | 18/60 | 0.29 |
+| reorder records | 27/60 | 0.49 |
+| cross-epoch splice | 20/60 | 0.29 |
+
+n = 48 blocks, l2 = 16; a failed audit marks the whole epoch file non-integral and does not identify the record.
+
+## D. Frequency attack on entity tokens (same workload and auxiliary data as E3)
+
+| System | U tokens recovered | U volume recovered | Cross-epoch linkage |
+|---|---|---|---|
+| S | 0.090 ± 0.008 | 0.482 ± 0.013 | see E3 |
+| B7 EVSEB | 0.157 ± 0.019 | 0.599 ± 0.016 | 1.000 (static trapdoors) |
+
+Total time 289s
+russellmitchell: already fetched
+santos: already fetched
+fox: already fetched
+harrison: already fetched
+wardbeck: already fetched
+shaw: already fetched
+wheeler: already fetched
+wilson: already fetched
+  calibration step learn done
+  calibration step theta done
+  calibration step theta done
+calibrated in 9568s
+E1-A done in 17765s
+E1-B done in 31195s
+E3 done in 41038s
+  E2 S: {'system': 'S', 'events': 105984, 'decoy_ratio': 0.0, 'wall_s': 742.2306315898895, 'online_s': 6.183819782992941, 'offline_s': 732.8618621289279, 'online_ev_per_s': 17138.921203926842, 'sustained_ev_per_s': 142.79119654894566, 'bytes_per_event': 1981.0903343900966, 'ka_decryptions': 216, 'phase3_s': 1.490074168992578, 'phase4_s': 0.04012372099532513, 'phase5_s': 0.0008323709917021915}
+  E2 SD: {'system': 'SD', 'events': 105984, 'decoy_ratio': 1.1998792270531402, 'wall_s': 1632.2732560634613, 'online_s': 14.03743252196, 'offline_s': 1612.8778943839789, 'online_ev_per_s': 7550.098626240934, 'sustained_ev_per_s': 64.93030477972827, 'bytes_per_event': 4358.695925800121, 'ka_decryptions': 216, 'phase3_s': 2.1345247340286733, 'phase4_s': 0.16246612596296472, 'phase5_s': 0.0018238890188513324}
+  E2 B3: {'system': 'B3', 'events': 105984, 'decoy_ratio': 0.0, 'wall_s': 3195.5214619636536, 'online_s': 11.71010055593797, 'offline_s': 3175.6225169709505, 'online_ev_per_s': 9050.648155728904, 'sustained_ev_per_s': 33.16641783243497, 'bytes_per_event': 7101.090334390096, 'ka_decryptions': 216, 'phase3_s': 6.453048584022326, 'phase4_s': 0.044860482012154534, 'phase5_s': 0.0008134449599310756}
+# AIT-LDSv2 results (ip-172-31-8-110, Linux-7.0.0-1014-aws-x86_64-with-glibc2.39)
+
+Development: russellmitchell, santos, fox; test: harrison, wardbeck, shaw, wheeler, wilson; full scenarios; alert budget 2 benign alerts per class per day.
+
+## E1-A: real attack chains (pooled over test scenarios)
+
+| System | Class | Incidents | Detected | False entities | AUC | Recall@FP2 |
+|---|---|---|---|---|---|---|
+| S | recon | 10 | 6 | 5 | 0.977 ± 0.027 | 0.733 ± 0.435 |
+| S | web_attack | 9 | 7 | 46 | 0.897 ± 0.194 | 0.600 ± 0.418 |
+| S | priv_esc | 16 | 8 | 25 | 0.982 ± 0.009 | 0.317 ± 0.037 |
+| S | dns_exfil | 9 | 4 | 7 | 0.968 ± 0.016 | 0.400 ± 0.224 |
+| SD | recon | 10 | 4 | 4 | 0.882 ± 0.161 | 0.467 ± 0.361 |
+| SD | web_attack | 9 | 6 | 179 | 0.889 ± 0.160 | 0.300 ± 0.447 |
+| SD | priv_esc | 16 | 6 | 37 | 0.966 ± 0.006 | 0.383 ± 0.162 |
+| SD | dns_exfil | 9 | 4 | 4 | 0.972 ± 0.017 | 0.400 ± 0.224 |
+| B2 | recon | 10 | 6 | 5 | 0.977 ± 0.027 | 0.733 ± 0.435 |
+| B2 | web_attack | 9 | 7 | 46 | 0.897 ± 0.194 | 0.600 ± 0.418 |
+| B2 | priv_esc | 16 | 8 | 25 | 0.982 ± 0.009 | 0.317 ± 0.037 |
+| B2 | dns_exfil | 9 | 4 | 7 | 0.968 ± 0.016 | 0.400 ± 0.224 |
+| A2 | recon | 10 | 7 | 5 | 0.983 ± 0.018 | 0.733 ± 0.435 |
+| A2 | web_attack | 9 | 7 | 43 | 0.941 ± 0.112 | 0.300 ± 0.447 |
+| A2 | priv_esc | 16 | 5 | 20 | 0.951 ± 0.016 | 0.317 ± 0.037 |
+| A2 | dns_exfil | 9 | 3 | 1 | 0.895 ± 0.065 | 0.400 ± 0.224 |
+| B1-default | recon | 10 | 7 | 235 | 0.908 ± 0.148 | 0.567 ± 0.253 |
+| B1-default | web_attack | 9 | 5 | 55 | 0.601 ± 0.196 | 0.600 ± 0.224 |
+| B1-default | priv_esc | 16 | 0 | 49 | 0.156 ± 0.054 | 0.000 ± 0.000 |
+| B1-default | dns_exfil | 9 | 4 | 19 | 0.688 ± 0.107 | 0.100 ± 0.224 |
+| B1-tuned | recon | 10 | 6 | 9 | 0.956 ± 0.068 | 0.767 ± 0.325 |
+| B1-tuned | web_attack | 9 | 0 | 14 | 0.552 ± 0.178 | 0.400 ± 0.418 |
+| B1-tuned | priv_esc | 16 | 0 | 21 | 0.071 ± 0.025 | 0.000 ± 0.000 |
+| B1-tuned | dns_exfil | 9 | 1 | 4 | 0.714 ± 0.085 | 0.400 ± 0.224 |
+
+## E1-B: injected low-and-slow attacks on harrison background, recall at the calibrated threshold
+
+
+dns_exfil, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.00 | 0.00 | 0.60 | 0.80 |
+| SD | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| A2 | 0.00 | 0.00 | 0.00 | 0.00 | 0.80 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+dns_exfil, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.00 | 0.20 | 0.80 | 0.80 |
+| SD | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| A2 | 0.00 | 0.00 | 0.00 | 0.00 | 0.80 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.20 |
+| B1-tuned | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+recon, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.00 | 0.00 | 0.20 | 1.00 |
+| SD | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.20 |
+| A2 | 0.00 | 0.00 | 0.00 | 0.00 | 0.40 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+recon, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.00 | 0.00 | 0.80 | 1.00 |
+| SD | 0.00 | 0.00 | 0.00 | 0.00 | 0.20 | 1.00 |
+| A2 | 0.00 | 0.00 | 0.00 | 0.00 | 0.80 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+## E1-B: injected low-and-slow attacks on harrison background, falsely alerted benign entities
+
+
+dns_exfil, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| SD | 0.80 | 0.80 | 0.80 | 0.80 | 0.80 | 0.80 |
+| A2 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-default | 2.20 | 2.20 | 2.20 | 2.20 | 2.20 | 2.20 |
+| B1-tuned | 0.80 | 0.80 | 0.80 | 0.80 | 0.80 | 0.80 |
+
+dns_exfil, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| SD | 0.80 | 0.80 | 0.80 | 0.80 | 0.80 | 0.80 |
+| A2 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-default | 2.20 | 2.20 | 2.20 | 2.20 | 2.20 | 2.20 |
+| B1-tuned | 0.80 | 0.80 | 0.80 | 0.80 | 0.80 | 0.80 |
+
+recon, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 |
+| SD | 0.80 | 1.00 | 1.00 | 1.20 | 1.20 | 1.00 |
+| A2 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 |
+| B1-default | 15.60 | 15.60 | 15.60 | 15.60 | 15.60 | 15.60 |
+| B1-tuned | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 |
+
+recon, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 |
+| SD | 1.20 | 1.20 | 1.20 | 1.20 | 0.80 | 1.00 |
+| A2 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 |
+| B1-default | 15.60 | 15.60 | 15.60 | 15.60 | 15.60 | 15.60 |
+| B1-tuned | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 | 2.40 |
+
+## E1-B: injected low-and-slow attacks on harrison background, recall@FP2 (threshold-free)
+
+
+dns_exfil, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 0.80 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 |
+| SD | 0.00 | 0.00 | 0.20 | 0.60 | 1.00 | 1.00 |
+| A2 | 0.20 | 0.60 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.20 | 0.20 | 0.40 |
+| B1-tuned | 0.00 | 0.20 | 0.20 | 0.60 | 0.80 | 1.00 |
+
+dns_exfil, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 0.80 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 |
+| SD | 0.20 | 0.20 | 0.40 | 1.00 | 1.00 | 1.00 |
+| A2 | 0.20 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 |
+| B1-default | 0.00 | 0.00 | 0.20 | 0.20 | 0.20 | 0.60 |
+| B1-tuned | 0.00 | 0.20 | 0.20 | 0.60 | 0.80 | 1.00 |
+
+recon, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.20 | 0.20 | 0.60 | 0.80 |
+| SD | 0.00 | 0.00 | 0.00 | 0.20 | 0.40 | 0.60 |
+| A2 | 0.00 | 0.00 | 0.00 | 0.40 | 0.80 | 0.80 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+recon, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| S | 0.00 | 0.00 | 0.20 | 0.40 | 0.80 | 1.00 |
+| SD | 0.00 | 0.00 | 0.00 | 0.20 | 0.80 | 1.00 |
+| A2 | 0.00 | 0.00 | 0.00 | 0.40 | 0.80 | 0.80 |
+| B1-default | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| B1-tuned | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+## E3: leakage on days 2-4 (prior: day 1 of the same scenario)
+
+| System | δ | U tokens | U volume | R tokens | R volume | Decoy AUC | Linkage | Chance |
+|---|---|---|---|---|---|---|---|---|
+| S | 0.000 ± 0.000 | 0.049 ± 0.007 | 0.285 ± 0.024 | 0.035 ± 0.006 | 0.367 ± 0.075 | n/a | 0.278 ± 0.035 | 0.036 ± 0.005 |
+| SD | 1.315 ± 0.263 | 0.052 ± 0.012 | 0.296 ± 0.047 | 0.034 ± 0.004 | 0.357 ± 0.073 | 0.973 ± 0.010 | 0.272 ± 0.034 | 0.003 ± 0.002 |
+| A4 | 0.000 ± 0.000 | 0.158 ± 0.034 | 0.535 ± 0.131 | 0.128 ± 0.030 | 0.503 ± 0.042 | n/a | 1.000 ± 0.000 | 0.036 ± 0.005 |
+| SD+A4 | 1.315 ± 0.263 | 0.155 ± 0.018 | 0.515 ± 0.099 | 0.099 ± 0.029 | 0.459 ± 0.099 | 0.973 ± 0.010 | 1.000 ± 0.000 | 0.003 ± 0.002 |
+
+## E2: 2048-bit throughput on harrison (105,984 events, 8 workers)
+
+| System | δ | Online ev/s | Sustained ev/s | Offline s | Bytes / event | Phase 3+4+5 s |
+|---|---|---|---|---|---|---|
+| S | 0.00 | 17,139 | 142.8 | 733 | 1,981 | 1.53 |
+| SD | 1.20 | 7,550 | 64.9 | 1613 | 4,359 | 2.30 |
+| B3 | 0.00 | 9,051 | 33.2 | 3176 | 7,101 | 6.50 |
+
+Total time 46611s
+have Friday-02-03-2018_TrafficForML_CICFlowMeter.csv
+have Friday-16-02-2018_TrafficForML_CICFlowMeter.csv
+have Friday-23-02-2018_TrafficForML_CICFlowMeter.csv
+have Thuesday-20-02-2018_TrafficForML_CICFlowMeter.csv
+have Thursday-01-03-2018_TrafficForML_CICFlowMeter.csv
+have Thursday-15-02-2018_TrafficForML_CICFlowMeter.csv
+have Thursday-22-02-2018_TrafficForML_CICFlowMeter.csv
+have Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv
+have Wednesday-21-02-2018_TrafficForML_CICFlowMeter.csv
+have Wednesday-28-02-2018_TrafficForML_CICFlowMeter.csv
+done: /home/ubuntu/data/cse-cic-ids2018
+16,137,183 rows (0.59% removed: NaN/inf), 70 non-constant features -> 63 (corr = 1) -> 46 (corr > 0.99); attacks 17.02%
+  epoch 1: validation accuracy 0.8864
+  epoch 11: validation accuracy 0.9014
+  epoch 21: validation accuracy 0.9268
+  epoch 31: validation accuracy 0.9368
+  epoch 41: validation accuracy 0.9383
+  epoch 51: validation accuracy 0.9377
+  epoch 61: validation accuracy 0.9391
+  stop after the 4th learning-rate halving (epoch 71)
+Baseline50 (plaintext) on 1,613,719 test vectors: {'acc': 0.9399889323977718, 'prec': 0.7576659038901602, 'rec': 0.9520289427805014, 'f1': 0.8437995480492082, 'tp': 261569, 'tn': 1255309, 'fp': 83661, 'fn': 13180}
+  HE batch 0: 8192 vectors, server 1.67 s, 54.9 MB, agreement 100.0000%
+  HE batch 1: 8192 vectors, server 1.66 s, 54.9 MB, agreement 100.0000%
+  HE batch 2: 8192 vectors, server 1.66 s, 54.9 MB, agreement 100.0000%
+# B4: Wingarz et al. (CNS 2024) reproduced
+
+Data: Friday-02-03-2018_TrafficForML_CICFlowMeter.csv, Friday-16-02-2018_TrafficForML_CICFlowMeter.csv, Friday-23-02-2018_TrafficForML_CICFlowMeter.csv, Thuesday-20-02-2018_TrafficForML_CICFlowMeter.csv, Thursday-01-03-2018_TrafficForML_CICFlowMeter.csv, Thursday-15-02-2018_TrafficForML_CICFlowMeter.csv, Thursday-22-02-2018_TrafficForML_CICFlowMeter.csv, Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv, Wednesday-21-02-2018_TrafficForML_CICFlowMeter.csv, Wednesday-28-02-2018_TrafficForML_CICFlowMeter.csv; 16,137,183 rows after cleaning; 46 features; split 80/10/10; CKKS N = 16384, q = [60, 5x40, 60], scale 2^40 (TenSEAL).
+
+| Model | Acc | Prec | Rec | F1 | Server s / batch | MB / batch | µs / vector |
+|---|---|---|---|---|---|---|---|
+| Baseline50 (ours) | 0.9400 | 0.7577 | 0.9520 | 0.8438 | | | |
+| CKKS50 (ours) | 0.9412 | 0.7640 | 0.9545 | 0.8487 | 1.66 | 54.9 | 203 |
+| Baseline50 (paper) | 0.9872 | 0.9981 | 0.9264 | 0.961 | | | |
+| CKKS50 (paper) | 0.9871 | 0.9983 | 0.9257 | 0.9607 | 1.35 | 59.6 | 165 |
+
+A batch costs the same time whether full or not (3 of 3 batches were full); per-vector cost assumes full batches of 8,192.
+
+Total time 848s
+/home/ubuntu/data/kyoto2016-raw/2015.zip: 2.46 GB, 365 daily files
+2015: days 20150115, 20150215, 20150315, 20150415, 20150515, 20150615, 20150715, 20150815, 20150915, 20151015, 20151115, 20151215
+2015: 4,004,196 sessions, 96.8% malicious
+# B6: Ogawa et al. (COMPSAC 2025) reproduced on Kyoto 2016
+
+Years 2015; 3 seeds; balanced 10,000 train / 10,000 test sessions per year; LightGBM.
+
+| Features | Acc | Prec | Rec | F1 | F1 / original | Unique benign | Unique malicious | k>=5 benign | Paper F1 |
+|---|---|---|---|---|---|---|---|---|---|
+| original | 0.970 ± 0.002 | 0.969 ± 0.004 | 0.971 ± 0.002 | 0.970 ± 0.002 | 100.00% | 0.978 ± 0.000 | 0.909 ± 0.005 | 0.009 ± 0.001 | 0.9867 |
+| proposed | 0.935 ± 0.004 | 0.945 ± 0.008 | 0.924 ± 0.001 | 0.935 ± 0.004 | 96.33% | 0.894 ± 0.002 | 0.864 ± 0.011 | 0.021 ± 0.002 | 0.977 |
+| minus1 | 0.907 ± 0.003 | 0.918 ± 0.007 | 0.895 ± 0.004 | 0.906 ± 0.003 | 93.39% | 0.875 ± 0.002 | 0.844 ± 0.014 | 0.028 ± 0.001 | 0.9603 |
+| proposed+uniqueness | 0.934 ± 0.004 | 0.945 ± 0.007 | 0.922 ± 0.001 | 0.934 ± 0.004 | 96.23% | n/a | n/a | n/a |  |
+
+Paper (Section IV-C): unique sessions 89.91% benign / 96.41% malicious before, 7.40% / 10.62% after anonymization (NII-SOCS); k >= 5 for 78.41% of benign sessions.
+
+Total time 147s
+done: results/*.md
+=== Tue Oct 13 23:16:09 UTC 2026 FINISHED exit=0

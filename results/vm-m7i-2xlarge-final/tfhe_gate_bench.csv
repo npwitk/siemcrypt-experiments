@@ -1,0 +1,3 @@
+symbol,description,median_us,note
+T_gate,TFHE gate with bootstrapping (NAND; tfhe-rs 0.8.7 boolean default parameters),20717.4,single thread
+T_gate_parallel,amortized gate time with 8 threads,3893.9,independent gates

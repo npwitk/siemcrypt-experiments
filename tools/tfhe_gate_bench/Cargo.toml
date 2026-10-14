@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tfhe = { version = "=0.8.7", features = ["boolean"] }
+tfhe = { version = "=0.8.7", features = ["boolean", "seeder_unix"] }  # seeder_unix: Linux has no default seeder
 
 [profile.release]
 lto = "fat"

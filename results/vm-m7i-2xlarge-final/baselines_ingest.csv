@@ -1,0 +1,13 @@
+system,seed,ingest_us_per_event,bytes_per_event,note
+S,1,682.9494583032363,678.0223358449946,512-bit Paillier; see E2 for 2048-bit
+B7 EVSEB,1,37.882231565684066,223.46918729817008,"AES, 4 keyword PRFs, Bloom, DHT, quaternary Merkle"
+B8 MK-Tree,1,144.49408248436447,219.40298708288483,"AEAD, Ed25519 sign + verify, binary Merkle, certificates"
+B5 PriSIEM,1,34631219.2204521,,"1672 TFHE gates / event, 1 thread"
+S,2,680.4212590308632,678.0616254036598,512-bit Paillier; see E2 for 2048-bit
+B7 EVSEB,2,37.45377677461407,223.52529601722281,"AES, 4 keyword PRFs, Bloom, DHT, quaternary Merkle"
+B8 MK-Tree,2,146.8087795985433,219.46999461786868,"AEAD, Ed25519 sign + verify, binary Merkle, certificates"
+B5 PriSIEM,2,34631219.2204521,,"1672 TFHE gates / event, 1 thread"
+S,3,680.8937560548954,678.0434607104413,512-bit Paillier; see E2 for 2048-bit
+B7 EVSEB,3,37.37390581338588,223.47887513455328,"AES, 4 keyword PRFs, Bloom, DHT, quaternary Merkle"
+B8 MK-Tree,3,143.99387109890293,219.4017761033369,"AEAD, Ed25519 sign + verify, binary Merkle, certificates"
+B5 PriSIEM,3,34631219.2204521,,"1672 TFHE gates / event, 1 thread"

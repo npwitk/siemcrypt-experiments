@@ -1,0 +1,13 @@
+manipulation,seed,n,l2,detected_audits,audits,predicted
+modify payload ciphertext,1,48,16,6,20,0.28598731248052955
+substitute record,1,48,16,8,20,0.28598731248052955
+reorder records,1,48,16,10,20,0.49386600409019954
+cross-epoch splice,1,48,16,6,20,0.28598731248052955
+modify payload ciphertext,2,48,16,8,20,0.28598731248052955
+substitute record,2,48,16,6,20,0.28598731248052955
+reorder records,2,48,16,7,20,0.49386600409019954
+cross-epoch splice,2,48,16,6,20,0.28598731248052955
+modify payload ciphertext,3,48,16,8,20,0.28598731248052955
+substitute record,3,48,16,4,20,0.28598731248052955
+reorder records,3,48,16,10,20,0.49386600409019954
+cross-epoch splice,3,48,16,8,20,0.28598731248052955

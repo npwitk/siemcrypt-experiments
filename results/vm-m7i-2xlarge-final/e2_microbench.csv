@@ -1,0 +1,23 @@
+symbol,description,median_us,note
+T_H,"SHA-256, 64-byte input",0.86,
+T_PRF,token F_K(H(v)) = HMAC-SHA256(SHA-256(v)),3.415,
+T_KDF,HKDF-SHA256 epoch key,4.251,
+T_AES (enc),"AES-256-GCM, 512-byte payload",2.113,
+T_AES (dec),"AES-256-GCM, 512-byte payload",1.625,
+KeyGen,Paillier 2048-bit (one-time),27903.038000658853,
+T_rand (offline),precompute r^N mod N^2,9349.993,
+T_Enc (online),Paillier encryption without precomputation,9394.7605,
+T_Enc,Paillier encryption with precomputed r^N,3.533,
+T_Add,homomorphic addition (mod N^2 multiplication),5.071,
+T_SMul,"plaintext-ciphertext multiplication, 16-bit weight",93.9505,
+T_Dec,Paillier CRT decryption,2628.013,
+T_Sig,Ed25519 sign (checkpoint),30.8425,
+T_Ver,Ed25519 verify (checkpoint),98.277,
+MMR append,"amortized per leaf (n=65536), excl. leaf hash",0.8526415100097656,
+MultiVerify k=1,n=65536; proof=16 hashes (vs 16 for separate paths),30.9345,
+MultiVerify k=16,n=65536; proof=180 hashes (vs 256 for separate paths),261.392,
+MultiVerify k=256,n=65536; proof=1808 hashes (vs 4096 for separate paths),2764.257,
+CMS update,"Count-Min update, 5x2719",2.906,
+
+env,Linux-7.0.0-1014-aws-x86_64-with-glibc2.39,x86_64,3.12.3
+paillier_bits,2048,ciphertext_bytes,512
