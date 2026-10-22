@@ -2,12 +2,17 @@
 
 Phase 1  normalization is done by the loaders; here: tokens (eq:tokens), AES-GCM payloads
          (eq:aes-gcm), HE features (eq:he), realness indicator (eq:realness-indicator),
-         frequency-hiding decoy padding (eq:tier, eq:padding-deficit, eq:decoy-count).
-Phase 2  index entries (eq:index-entry), MMR commitment (eq:mmr-leaf), checkpoints
-         (eq:checkpoint), TD registration (eq:token-mapping).
-Phase 3  protected queries (eq:protected-query).
+         frequency-hiding decoy padding (eq:tier, eq:padding-deficit, eq:decoy-count), or the
+         journal's LAPH (siemcrypt/laph.py) and fixed padding over real values.
+Phase 2  index entries (eq:index-entry), MMR commitment (eq:mmr-leaf), authenticated EPII root
+         and checkpoints CP_e = (e, R^MMR, R^IDX, H(CP_{e-1}), n_e) (journal eq:checkpoint),
+         TD registration (eq:token-mapping).
+Phase 3  protected queries (eq:protected-query); with cfg.acl, verify-before-release ACL
+         (journal Algorithm alg:acl) before the KA release.
+Phase 4  with cfg.acl, graph-lineage verification of the cloud's updates (C_G).
 Phase 5  trusted history, adaptive retention, scoring, alerts (eq:adaptive-decay ...
-         eq:alert-descriptor); label-free screening (eq:sketch-keys ... eq:unlabeled-alert).
+         eq:alert-descriptor); state commitments C_H with cfg.acl; label-free screening
+         (eq:sketch-keys ... eq:unlabeled-alert).
 Phase 6  historical token derivation (eq:historical-entity-token, eq:investigation-query).
 """
 
@@ -20,12 +25,15 @@ import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 
+from .. import lineage
 from ..bus import Bus
 from ..crypto.cms import CountMin
 from ..crypto.encoding import FixedPoint, encode
 from ..crypto.mmr import MMR
+from ..crypto.mmr import HashCounter
 from ..crypto.paillier import Paillier
 from ..crypto.primitives import H, aead_encrypt, prf_token
+from ..laph import ExposureTracker, plan_decoys
 from ..model import GRAPH_FEATURES, AttackProfile, Config, Context, Event
 from ..protocol import DIMS, IndexEntry, ProtectedRecord, aead_ad, leaf_data
 from .ka import GENESIS, KeyAuthority
@@ -62,6 +70,7 @@ class Descriptor:
     score: float
     horizon: int | None
     provenance: frozenset
+    state_commitment: bytes | None = None  # C_H with cfg.acl
 
 
 @dataclass
@@ -78,6 +87,8 @@ class _PairState:
     h: list[float]
     R: float = 0.0
     prov: set = field(default_factory=set)
+    C_H: bytes = GENESIS
+    zs: list = field(default_factory=list)  # NoContract: explicit (epoch, z) history
 
 
 class EdgeEncryptor:
@@ -96,7 +107,15 @@ class EdgeEncryptor:
         self.epoch: int | None = None
         self.keys: dict[str, bytes] = {}
         self.mmr: MMR | None = None
-        self.prev_root = GENESIS
+        self.prev_cp_hash = GENESIS
+        self.checkpoint: tuple | None = None
+        self.epoch_entries: dict[int, IndexEntry] = {}  # iota -> entry, current epoch
+        self.epoch_X: dict[int, tuple] = {}             # iota -> (X, X0), current epoch (cfg.acl)
+        self.accepted: dict[str, dict] = {}             # qid -> accepted Phase 3 evidence (cfg.acl)
+        self.mu_prev = None
+        self.exposure = ExposureTracker(cfg) if cfg.padding == "laph" else None
+        if cfg.acl and cfg.full_he:
+            raise ValueError("ACL is defined for SG-HEF, not for the full-HE baseline")
         self._tok_cache: dict[tuple[int, str, str], bytes] = {}
         self.user_of: dict[int, dict[bytes, str]] = defaultdict(dict)  # epoch -> T_U -> u
         self.dummy: dict[int, set[bytes]] = defaultdict(set)
@@ -115,6 +134,8 @@ class EdgeEncryptor:
         # evaluation-only ground truth; no protocol step reads these
         self.score_log: list[tuple] = []  # (epoch, user, attack, S, z, h^(e-1))
         self.decoy_rids: set[tuple[int, int]] = set()
+        self.horizon_log: list[tuple] = []  # (epoch, user, attack, ell, lambda)
+        self.acl_log: list[dict] = []       # per verification: kind, ok, seconds, hashes, he_adds
 
     # ================================================================ helpers
     def token(self, dim: str, value: str, epoch: int | None = None,
@@ -137,6 +158,7 @@ class EdgeEncryptor:
         self.epoch = epoch
         self.keys = self.bus.send("ka", "ee", "epoch_keys", self.ka.epoch_keys(epoch))
         self.mmr = MMR()
+        self.epoch_entries, self.epoch_X, self.accepted = {}, {}, {}
 
     def ingest(self, ev: Event) -> None:
         b = int(ev.ts // self.cfg.bucket_len)
@@ -148,8 +170,23 @@ class EdgeEncryptor:
             self.cms_cur.update(H(ev.user.encode()))
             self.cms_cur.update(H(encode(ev.user, ev.res, ev.cat)))
 
+    def _real_value_decoys(self, events: list[Event], real_lengths: list[int]) -> list[_Pending]:
+        """LAPH (cfg.padding == "laph") or fixed padding over real values ("fixed")."""
+        if self.cfg.padding == "laph":
+            gamma_of = {k: self.exposure.gamma(L) for k, L in self.exposure.scores(events).items()}
+        else:
+            gamma_of = {(d, v): self.cfg.gamma for ev in events for d, v in (("U", ev.user), ("R", ev.res))}
+        out = []
+        for u, r, c, s in plan_decoys(events, gamma_of, self.rng):
+            toks = tuple(self.token(d, v) for d, v in zip(DIMS, (u, r, c, s)))
+            n = self.rng.choice(real_lengths)
+            out.append(_Pending(toks, {}, self.rng.randbytes(n) if hasattr(self.rng, "randbytes") else bytes(n), 1, None))
+        return out
+
     def _decoys(self, real_tokens: list[tuple], real_lengths: list[int]) -> list[_Pending]:
         """Frequency-hiding padding for one bucket (Phase 1, Step 5)."""
+        if self.cfg.padding == "laph" or (self.cfg.padding == "fixed" and self.cfg.gamma > 1):
+            return self._real_value_decoys(self.bucket_events, real_lengths) if real_tokens else []
         g = self.cfg.gamma
         if g <= 1 or not real_tokens:
             return []
@@ -234,6 +271,9 @@ class EdgeEncryptor:
             rec = ProtectedRecord(e, iota, iv, ct, X, X0)
             entry = IndexEntry(p.tokens, b, e, iota)
             self.mmr.append(leaf_data(rec, entry))
+            self.epoch_entries[iota] = entry
+            if self.cfg.acl:
+                self.epoch_X[iota] = (X, X0)
             self.bus.send("ee", "cloud", "record", (rec, entry))
             self.cloud.receive_record(rec, entry)
             if p.user is not None:
@@ -252,13 +292,103 @@ class EdgeEncryptor:
     def end_epoch(self) -> tuple[tuple, bytes]:
         self.close_bucket()
         self.bucket = None
-        cp = (self.epoch, self.mmr.root(), self.prev_root, self.mmr.size)
+        if self.exposure is not None:
+            self.exposure.end_epoch()
+        t0 = time.perf_counter()
+        r_idx = lineage.build_index(self.epoch_entries.values()).root()  # R_e^IDX (eq:index-root)
+        self.stats["t_index"] += time.perf_counter() - t0
+        cp = (self.epoch, self.mmr.root(), r_idx, self.prev_cp_hash, self.mmr.size)
         sig = self.ka.sign_checkpoint(cp)
         self.bus.send("ka", "ee", "checkpoint_sig", sig)
         self.bus.send("ee", "cloud", "checkpoint", (cp, sig))
         self.cloud.receive_checkpoint(cp, sig)
-        self.prev_root = cp[1]
+        self.prev_cp_hash = lineage.checkpoint_hash(cp)
+        self.checkpoint = cp
         return cp, sig
+
+    # ================================================================ Phase 3: verify-before-release ACL
+    def acl_release(self, q: dict, req: dict) -> dict | None:
+        """Algorithm alg:acl on Req_q = (Q_q, candidate set, postings, pi^IDX, A_q, C_Q, C_A).
+        On success the EE obtains the KA release and returns Z_q with rho_q; None on failure."""
+        hc = HashCounter()
+        adds = [0]
+
+        def summer(cts):
+            acc = None
+            for c in cts:
+                acc = c if acc is None else self.he.add(acc, c)
+                adds[0] += 1
+            return acc if acc is not None else self.he.encrypt(0)
+
+        t0 = time.perf_counter()
+        cp = self.checkpoint
+        ok = lineage.verify_postings(cp[2], q["tokens"], req["postings"], req["proof"], hc)
+        Q = None
+        if ok:
+            Q = lineage.candidates_from(q["tokens"], req["postings"], cp[4])
+            ok = Q == {rid[1] for rid in req["Q"]}
+        if ok:
+            chi = lineage.c_chi(q, cp, hc)
+            cq = lineage.c_q(chi, Q, hc)
+            ok = cq == req["C_Q"]
+        if ok:
+            feat_index = {f: j for j, f in enumerate(self.cfg.agg_features)}
+            src = lambda i: self.epoch_entries[i].tokens[3]  # noqa: E731
+            aggs, realness = lineage.aggregate(q, Q, self.epoch_X.__getitem__, src, feat_index, self.he, summer)
+            ok = (all(int(aggs[f]) == int(req["aggs"][f]) for f in q["feats"])
+                  and int(realness) == int(req["realness"]))
+        if ok:
+            ca = lineage.c_a(cq, q["feats"], aggs, realness, hc)
+            ok = ca == req["C_A"]
+        rho = lineage.acl_record(chi, cq, ca, hc) if ok else None
+        dt = time.perf_counter() - t0
+        self.acl_log.append(dict(kind="phase3", qid=q["qid"], epoch=self.epoch, ok=int(ok), seconds=dt,
+                                 hashes=hc.count, he_adds=adds[0], q=len(req["Q"]),
+                                 postings=sum(len(v) for v in req["postings"].values())))
+        if not ok:
+            self.stats["acl_reject"] += 1
+            # the context keeps its slot with no evidence (fixed feature dimension)
+            self.accepted[q["qid"]] = dict(qid=q["qid"], attack=q["attack"], epoch=self.epoch, Q=set(), y={},
+                                           phi=(0, 0, 0), rho=None, rejected=True)
+            return None
+        self.bus.send("ee", "ka", "release_req", (q["qid"], self.epoch, aggs, realness))
+        y = self.ka.release(q["qid"], self.epoch, q["policy"], q["threshold"], aggs, realness)
+        self.bus.send("ka", "ee", "release", y)
+        rids = {(self.epoch, i) for i in Q}
+        phi = (len(Q), len({self.epoch_entries[i].tokens[3] for i in Q}), len({self.epoch_entries[i].bucket for i in Q}))
+        z = dict(qid=q["qid"], attack=q["attack"], epoch=self.epoch, Q=rids, y=y, phi=phi, rho=rho)
+        self.accepted[q["qid"]] = z
+        return z
+
+    # ================================================================ Phase 4: graph-lineage verification
+    def verify_graph(self, updates: list[tuple], drift: float) -> tuple[list[tuple], float]:
+        """Rebuild the attack-relevant contracted neighbourhoods from the accepted Phase 3
+        evidence and admit only cloud updates whose C_G matches (journal Phase 4, Step 5)."""
+        hc = HashCounter()
+        t0 = time.perf_counter()
+        Z = list(self.accepted.values())
+        profiles = {a: frozenset(self.token("C", c) for c in p.categories) for a, p in self.profiles.items()}
+        mine, mu = lineage.contract(Z, lambda rid: self.epoch_entries[rid[1]], profiles, hc)
+        expected = {(u[0], u[1]): u for u in mine}
+        admitted, bad = [], 0
+        for upd in updates:
+            ref = expected.pop((upd[0], upd[1]), None)
+            if ref is not None and upd[4] == ref[4] and list(upd[2]) == list(ref[2]) and upd[3] == ref[3]:
+                admitted.append(upd)
+            else:
+                bad += 1
+        omitted = len(expected)
+        my_drift = lineage.drift(mu, self.mu_prev)
+        drift_ok = abs(my_drift - drift) <= 1e-12
+        self.mu_prev = mu
+        dt = time.perf_counter() - t0
+        self.acl_log.append(dict(kind="phase4", epoch=self.epoch, ok=int(not bad and not omitted and drift_ok),
+                                 seconds=dt, hashes=hc.count, he_adds=0, q=len(updates), rejected=bad,
+                                 omitted=omitted))
+        self.stats["graph_reject"] += bad
+        self.stats["graph_omitted"] += omitted
+        self.stats["drift_reject"] += int(not drift_ok)
+        return admitted, my_drift
 
     # ================================================================ Phase 5, Step 6: screening
     def _xi(self, key: bytes) -> float:
@@ -319,9 +449,34 @@ class EdgeEncryptor:
     def _prune(self, prov: set, horizon: int) -> set:
         return {rid for rid in prov if rid[0] >= self.epoch - horizon + 1}
 
+    def _lambda(self, p: AttackProfile, drift: float, R: float) -> float:
+        """Adaptive decay (eq:adaptive-decay); FixedDecay ablation keeps lambda0."""
+        if self.cfg.fixed_decay:
+            return p.lambda0
+        return min(max(p.lambda0 + p.alpha * drift - p.beta * R, p.lambda_min), p.lambda_max)
+
+    def _explicit_h(self, st: _PairState) -> list[float]:
+        """NoContract: rebuild h from the explicit per-epoch history (same values as the
+        recursive update, but the state grows with the processed epochs)."""
+        dim = len(st.h)
+        h = [0.0] * dim
+        for _, z, rho in st.zs:
+            h = [rho * hv + (1 - rho) * zv for hv, zv in zip(h, z)] if z is not None else [rho * hv for hv in h]
+        return h
+
+    def state_size(self) -> int:
+        """Floats and references held in trusted historical state (evaluation of NoContract)."""
+        n = 0
+        for st in self.state.values():
+            n += len(st.h) + 1 + len(st.prov) + sum(len(z) + 2 if z is not None else 2 for _, z, _ in st.zs)
+        return n
+
     def phase5(self, updates: list[tuple], drift: float) -> list[Descriptor]:
+        if self.cfg.acl:
+            updates, drift = self.verify_graph(updates, drift)
         e, alerts, seen = self.epoch, [], set()
-        for T_u, a, z, refs in updates:
+        for upd in updates:
+            T_u, a, z, refs = upd[:4]
             if T_u in self.dummy[e]:
                 self.stats["dummy_updates_discarded"] += 1
                 continue
@@ -330,20 +485,27 @@ class EdgeEncryptor:
                 continue
             p = self.profiles[a]
             st = self.state.get((u, a)) or _PairState([0.0] * len(z))
-            lam = min(max(p.lambda0 + p.alpha * drift - p.beta * st.R, p.lambda_min), p.lambda_max)
+            lam = self._lambda(p, drift, st.R)
             rho = math.exp(-lam)
             horizon = math.ceil(math.log(self.cfg.eps_h) / math.log(rho))
             n = len(GRAPH_FEATURES)
+            if not self.cfg.contract:
+                st.h = self._explicit_h(st)
             S = self._dot(p.theta_g, z[:n]) + self._dot(p.theta_y, z[n:]) + p.theta_h * self._hist_score(p, st.h)
             h_prev = tuple(st.h)
             st.R = _sigmoid(p.kappa * (S - p.Theta))
             st.h = [rho * hv + (1 - rho) * zv for hv, zv in zip(st.h, z)]
+            if not self.cfg.contract:
+                st.zs.append((e, tuple(z), rho))
             st.prov = self._prune(st.prov | set(refs), horizon)
+            if self.cfg.acl:
+                st.C_H = lineage.c_h(st.C_H, upd[4], st.h, st.R, st.prov)
             self.state[(u, a)] = st
             seen.add((u, a))
             self.score_log.append((e, u, a, S, tuple(z), h_prev))
+            self.horizon_log.append((e, u, a, horizon, lam))
             if S >= p.Theta:
-                d = Descriptor(e, T_u, a, S, horizon, frozenset(st.prov))
+                d = Descriptor(e, T_u, a, S, horizon, frozenset(st.prov), st.C_H if self.cfg.acl else None)
                 self.bus.send("ee", "sa", "alert", d)
                 self.sa.receive_alert(d)
                 alerts.append(d)
@@ -351,12 +513,15 @@ class EdgeEncryptor:
             if key in seen:
                 continue
             st, p = self.state[key], self.profiles[key[1]]
-            lam = min(max(p.lambda0 + p.alpha * drift - p.beta * st.R, p.lambda_min), p.lambda_max)
-            rho = math.exp(-lam)
+            rho = math.exp(-self._lambda(p, drift, st.R))
             st.h = [rho * hv for hv in st.h]
+            if not self.cfg.contract:
+                st.zs.append((e, None, rho))
             st.prov = self._prune(st.prov, math.ceil(math.log(self.cfg.eps_h) / math.log(rho)))
-            if math.sqrt(sum(v * v for v in st.h)) < self.cfg.eps_h and not st.prov:
-                del self.state[key]
+            if self.cfg.acl:
+                st.C_H = lineage.c_h(st.C_H, lineage.c_inactive(e, key[1]), st.h, st.R, st.prov)
+            if self.cfg.contract and math.sqrt(sum(v * v for v in st.h)) < self.cfg.eps_h and not st.prov:
+                del self.state[key]  # NoContract keeps its explicit history
         return alerts
 
     # ================================================================ Phase 6: historical tokens

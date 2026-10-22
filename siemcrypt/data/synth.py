@@ -45,6 +45,7 @@ class SynthConfig:
     lns_epochs: int = 5
     n_coordinated: int = 0
     coord_per_source: int = 3
+    drift: float = 0.0  # environmental drift: per-epoch volume +-drift and drift*n_users popularity swaps
 
 
 @dataclass
@@ -84,10 +85,18 @@ def generate(cfg: SynthConfig) -> tuple[list[Event], list[GroundTruth]]:
     weights = [1 / (i + 1) ** cfg.zipf_s for i in range(cfg.n_users)]
     events: list[Event] = []
 
-    # benign background
+    # benign background; with drift, the benign volume and the users' popularity change per
+    # epoch (a separate generator, so drift = 0 reproduces the original streams)
+    rng_d = random.Random(cfg.seed * 7919 + 1)
     for e in range(cfg.epochs):
         t0 = e * cfg.epoch_len
-        for _ in range(cfg.events_per_epoch):
+        n_ev = cfg.events_per_epoch
+        if cfg.drift > 0:
+            n_ev = max(1, round(n_ev * (1 + cfg.drift * (2 * rng_d.random() - 1))))
+            for _ in range(int(cfg.drift * cfg.n_users)):
+                i, j = rng_d.randrange(cfg.n_users), rng_d.randrange(cfg.n_users)
+                weights[i], weights[j] = weights[j], weights[i]
+        for _ in range(n_ev):
             src = _pick(rng, SOURCE_MIX)
             cat = _pick(rng, BENIGN_CATS[src])
             user = rng.choices(users, weights)[0]

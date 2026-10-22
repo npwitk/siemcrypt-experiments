@@ -48,12 +48,13 @@ def frequency_attack(s: SIEMCrypt, aux_rank: list[str], dim: str, cumulative: bo
     cumulative=True accumulates counts over all epochs, which is possible only when tokens
     do not rotate (A4 / static tokens): equal tokens then denote the same value.
     Returns token recovery (fraction of real tokens) and volume recovery (fraction of real
-    records whose token is mapped correctly), averaged over epochs.
+    records whose token is mapped correctly), averaged over epochs, and per_value: the
+    (epoch, value, recovered) outcome of every real token (for exposure-stratified results).
     """
     truth = token_truth(s)
     by_ep = entries_by_epoch(s)
     pos = DIM_POS[dim]
-    tok_rates, vol_rates = [], []
+    tok_rates, vol_rates, per_value = [], [], []
     acc = Counter()
     for e in sorted(by_ep):
         cnt = Counter(ent.tokens[pos] for _, ent in by_ep[e])
@@ -67,11 +68,13 @@ def frequency_attack(s: SIEMCrypt, aux_rank: list[str], dim: str, cumulative: bo
         if not real_cur:
             continue
         ok = [t for t, v in real_cur.items() if guess.get(t) == v]
+        per_value += [(e, v, guess.get(t) == v) for t, v in real_cur.items()]
         tok_rates.append(len(ok) / len(real_cur))
         n_real = sum(1 for rid, ent in by_ep[e] if rid not in s.ee.decoy_rids)
         n_ok = sum(1 for rid, ent in by_ep[e] if rid not in s.ee.decoy_rids and ent.tokens[pos] in set(ok))
         vol_rates.append(n_ok / max(n_real, 1))
-    return dict(token_recovery=float(np.mean(tok_rates)), volume_recovery=float(np.mean(vol_rates)))
+    return dict(token_recovery=float(np.mean(tok_rates)), volume_recovery=float(np.mean(vol_rates)),
+                per_value=per_value)
 
 
 # ============================================================================ (b) decoys
@@ -165,7 +168,7 @@ def linkage_attack(s: SIEMCrypt, max_tokens: int = 2000) -> dict:
     truth = token_truth(s)
     by_ep = entries_by_epoch(s)
     eps = sorted(by_ep)
-    accs = []
+    accs, per_value = [], []
     for e1, e2 in zip(eps, eps[1:]):
         A, B = by_ep[e1], by_ep[e2]
         uA = {t: u for t, u in truth[(e1, "U")].items()}
@@ -177,6 +180,7 @@ def linkage_attack(s: SIEMCrypt, max_tokens: int = 2000) -> dict:
             continue
         if tokA & tokB:  # tokens do not rotate: equal tokens link trivially
             accs.append(sum(1 for t, t2 in targets.items() if t == t2) / len(targets))
+            per_value += [(e1, uA[t], t == t2) for t, t2 in targets.items()]
             continue
         cA, cB = Counter(ent.tokens[2] for _, ent in A), Counter(ent.tokens[2] for _, ent in B)
         sA, sB = Counter(ent.tokens[3] for _, ent in A), Counter(ent.tokens[3] for _, ent in B)
@@ -195,5 +199,6 @@ def linkage_attack(s: SIEMCrypt, max_tokens: int = 2000) -> dict:
         ri, ci = linear_sum_assignment(cost)
         match = {la[i]: lb[j] for i, j in zip(ri, ci)}
         accs.append(sum(1 for t, t2 in targets.items() if match.get(t) == t2) / len(targets))
-    return dict(linkage_accuracy=float(np.mean(accs)) if accs else None,
+        per_value += [(e1, uA[t], match.get(t) == t2) for t, t2 in targets.items()]
+    return dict(linkage_accuracy=float(np.mean(accs)) if accs else None, per_value=per_value,
                 chance=float(np.mean([1 / max(len({ent.tokens[0] for _, ent in by_ep[e]}), 1) for e in eps])))

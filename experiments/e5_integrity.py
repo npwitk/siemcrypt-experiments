@@ -6,8 +6,13 @@ Part B  multiproof vs. separate per-record Merkle paths: proof size (hashes, byt
         verification time for k retrieved records out of n stored leaves
 Part C  end-to-end investigation latency from alert to resolved identity
 
-Usage:  python experiments/e5_integrity.py [--quick] [--bits 2048] [--trials 5]
-Writes results/e5_tamper.csv, e5_proofs.csv, e5_latency.csv, e5_summary.md.
+With --variant J (journal: authenticated EPII, dual verification) the historical query
+results are verified against R_tau^IDX, so omitted search results become detectable, and
+Part C splits the latency into EPII, checkpoint and MMR verification.
+
+Usage:  python experiments/e5_integrity.py [--quick] [--bits 2048] [--trials 5] [--variant S|J]
+Writes results/e5_tamper.csv, e5_proofs.csv, e5_latency.csv, e5_summary.md
+(with --variant J: e5_J_tamper.csv, e5_J_latency.csv, e5_J_summary.md; no Part B).
 """
 
 from __future__ import annotations
@@ -104,16 +109,16 @@ def m_rollback_checkpoint(s, d, rng):
 
 def m_forge_checkpoint(s, d, rng):
     tau = d.epoch
-    (e, root, prev, n), sig = s.cloud.checkpoints[tau]
-    s.cloud.checkpoints[tau] = ((e, os.urandom(len(root)), prev, n), sig)
+    (e, root, idx, prev, n), sig = s.cloud.checkpoints[tau]
+    s.cloud.checkpoints[tau] = ((e, os.urandom(len(root)), idx, prev, n), sig)
     return {tau}
 
 
 def m_truncate_checkpoint(s, d, rng):
     """Claim a shorter epoch (rollback of the MMR size) under the original signature."""
     tau = d.epoch
-    (e, root, prev, n), sig = s.cloud.checkpoints[tau]
-    s.cloud.checkpoints[tau] = ((e, root, prev, n - 1), sig)
+    (e, root, idx, prev, n), sig = s.cloud.checkpoints[tau]
+    s.cloud.checkpoints[tau] = ((e, root, idx, prev, n - 1), sig)
     return {tau}
 
 
@@ -149,9 +154,22 @@ def m_omit_requested(s, d, rng):
 
 
 def m_omit_search(s, d, rng):
-    """Known limitation: omit matching records from the historical search results."""
-    orig = s.cloud.inv_query
+    """Omit matching records from the historical search results (a limitation without the
+    authenticated EPII; with it the cloud must also drop them from the posting lists)."""
     dropped = []
+    if s.cfg.acl:
+        orig_a = s.cloud.inv_query_auth
+
+        def inv_query_auth(epoch, tokens):
+            Q, P, pf = orig_a(epoch, tokens)
+            extra = sorted(Q - d.provenance)
+            dropped.extend(extra)
+            gone = {r[1] for r in extra}
+            return Q - set(extra), {k: [i for i in v if i not in gone] for k, v in P.items()}, pf
+
+        s.cloud.inv_query_auth = inv_query_auth
+        return dropped
+    orig = s.cloud.inv_query
 
     def inv_query(epoch, tokens):
         res = orig(epoch, tokens)
@@ -161,6 +179,20 @@ def m_omit_search(s, d, rng):
 
     s.cloud.inv_query = inv_query
     return dropped
+
+
+def m_stale_index(s, d, rng):
+    """Answer the historical query of the alert epoch from the previous epoch's index state."""
+    orig_a = s.cloud.inv_query_auth
+
+    def inv_query_auth(epoch, tokens):
+        if epoch != d.epoch:
+            return orig_a(epoch, tokens)
+        Q, P, pf = orig_a(epoch - 1, tokens)
+        return {(epoch, r[1]) for r in Q}, P, pf
+
+    s.cloud.inv_query_auth = inv_query_auth
+    return {d.epoch}
 
 
 MANIPULATIONS = {
@@ -177,18 +209,20 @@ MANIPULATIONS = {
     "omit requested record": m_omit_requested,
     "omit search result (limitation)": m_omit_search,
 }
+MANIPULATIONS_J = {**{k: v for k, v in MANIPULATIONS.items() if not k.startswith("omit search")},
+                   "omit search result": m_omit_search, "replay stale index state": m_stale_index}
 
 
-def tamper_trial(name: str, seed: int) -> dict:
+def tamper_trial(name: str, seed: int, variant: str = "S") -> dict:
     events, _ = generate(replace(DATA, seed=seed))
-    s = run(config("S", seed=seed), events)
+    s = run(config(variant, seed=seed), events)
     d = _alert(s)
     if name.startswith("omit search"):
         d = replace(d, attack=None)  # entity-wide historical search: results beyond provenance
     rng = random.Random(seed)
     clean = s.investigate(d)
     s.cloud._mmr_cache.clear()
-    hit = MANIPULATIONS[name](s, d, rng)
+    hit = {**MANIPULATIONS, **MANIPULATIONS_J}[name](s, d, rng)
     s.cloud._mmr_cache.clear()
     inv = s.investigate(d)
     if callable(hit):  # forge MMR node: epochs known after the call
@@ -244,9 +278,9 @@ def proof_sweep(ns: list[int], ks: list[int], reps: int) -> list[dict]:
 
 
 # ============================================================================ Part C
-def latency(bits: int, workers: int, seed: int = 1) -> list[dict]:
+def latency(bits: int, workers: int, seed: int = 1, variant: str = "S") -> list[dict]:
     events, _ = generate(SynthConfig(epochs=6, events_per_epoch=600, n_users=80, seed=seed))
-    s = run(config("S", paillier_bits=bits, precompute_workers=workers, seed=seed), events)
+    s = run(config(variant, paillier_bits=bits, precompute_workers=workers, seed=seed), events)
     rows = []
     for d in [d for d in s.sa.alerts if d.attack][:10]:
         b0 = sum(s.bus.bytes.values())
@@ -256,7 +290,8 @@ def latency(bits: int, workers: int, seed: int = 1) -> list[dict]:
         rows.append(dict(bits=bits, attack=d.attack, window=len(inv.window), verified_records=inv.verified_records,
                          decoys_dropped=inv.decoys_dropped, plaintexts=len(inv.plaintexts),
                          identity_resolved=int(inv.identity is not None), latency_ms=dt * 1e3,
-                         bytes=sum(s.bus.bytes.values()) - b0))
+                         bytes=sum(s.bus.bytes.values()) - b0,
+                         **{f"{k}_ms": v * 1e3 for k, v in inv.timing.items()}))
     return rows
 
 
@@ -266,45 +301,56 @@ def main() -> None:
     ap.add_argument("--trials", type=int, default=5)
     ap.add_argument("--bits", type=int, default=2048, help="key size for Part C")
     ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--variant", default="S", choices=["S", "J"])
     args = ap.parse_args()
     trials = 2 if args.quick else args.trials
     t0 = time.time()
+    pre = "e5_" if args.variant == "S" else f"e5_{args.variant}_"
+    manips = MANIPULATIONS if args.variant == "S" else MANIPULATIONS_J
 
     from concurrent.futures import ProcessPoolExecutor
 
-    jobs = [(m, sd) for m in MANIPULATIONS for sd in range(1, trials + 1)]
+    jobs = [(m, sd, args.variant) for m in manips for sd in range(1, trials + 1)]
     with ProcessPoolExecutor(args.workers) as ex:
         rowsA = list(ex.map(tamper_trial, *zip(*jobs)))
-    write_csv("e5_tamper.csv", rowsA)
+    write_csv(f"{pre}tamper.csv", rowsA)
     print(f"part A done in {time.time() - t0:.0f}s", flush=True)
 
-    ns = [1_000, 10_000, 100_000] if args.quick else [1_000, 10_000, 100_000, 1_000_000]
-    rowsB = proof_sweep(ns, [1, 10, 100, 1000], reps=3 if args.quick else 7)
-    write_csv("e5_proofs.csv", rowsB)
+    rowsB = []
+    if args.variant == "S":
+        ns = [1_000, 10_000, 100_000] if args.quick else [1_000, 10_000, 100_000, 1_000_000]
+        rowsB = proof_sweep(ns, [1, 10, 100, 1000], reps=3 if args.quick else 7)
+        write_csv("e5_proofs.csv", rowsB)
 
-    rowsC = latency(512 if args.quick else args.bits, args.workers)
-    write_csv("e5_latency.csv", rowsC)
+    rowsC = latency(512 if args.quick else args.bits, args.workers, variant=args.variant)
+    write_csv(f"{pre}latency.csv", rowsC)
 
-    md = ["# E5 results (synthetic data)\n", "## Part A: manipulation detection\n",
+    md = [f"# E5 results (synthetic data, variant {args.variant})\n", "## Part A: manipulation detection\n",
           "| Manipulation | Detected | Affected record decrypted | Clean run verified |", "|---|---|---|---|"]
-    for m in MANIPULATIONS:
+    for m in manips:
         sel = [r for r in rowsA if r["manipulation"] == m]
         md.append(f"| {m} | {sum(r['detected'] for r in sel)}/{len(sel)} | "
                   f"{sum(r['affected_decrypted'] for r in sel)}/{len(sel)} | {sum(r['clean_ok'] for r in sel)}/{len(sel)} |")
     om = [r for r in rowsA if r["manipulation"].startswith("omit search")]
-    md.append(f"\nOmitted search results: {sum(r['plaintexts_lost'] for r in om)} plaintexts silently lost over "
-              f"{len(om)} trials (inclusion proofs cannot detect omission).\n")
-    md += ["## Part B: multiproof vs. separate paths\n",
-           "| n | k | Multiproof hashes | Separate hashes | Multiverify (ms) | Separate (ms) |", "|---|---|---|---|---|---|"]
-    md += [f"| {r['n']:,} | {r['k']} | {r['multiproof_hashes']:,} | {r['separate_hashes']:,} | "
-           f"{r['multiverify_ms']:.2f} | {r['separate_verify_ms']:.2f} |" for r in rowsB]
+    if args.variant == "S":
+        md.append(f"\nOmitted search results: {sum(r['plaintexts_lost'] for r in om)} plaintexts silently lost over "
+                  f"{len(om)} trials (inclusion proofs cannot detect omission).\n")
+    else:
+        md.append(f"\nOmitted search results: {sum(r['detected'] for r in om)}/{len(om)} detected by the authenticated "
+                  f"EPII; plaintexts of the affected epochs withheld: {sum(r['plaintexts_lost'] for r in om)}.\n")
+    if rowsB:
+        md += ["## Part B: multiproof vs. separate paths\n",
+               "| n | k | Multiproof hashes | Separate hashes | Multiverify (ms) | Separate (ms) |", "|---|---|---|---|---|---|"]
+        md += [f"| {r['n']:,} | {r['k']} | {r['multiproof_hashes']:,} | {r['separate_hashes']:,} | "
+               f"{r['multiverify_ms']:.2f} | {r['separate_verify_ms']:.2f} |" for r in rowsB]
     md += ["", f"## Part C: investigation latency ({rowsC[0]['bits'] if rowsC else '-'}-bit keys)\n",
-           "| Attack | Window | Verified records | Plaintexts | Identity | Latency (ms) | Bytes |",
-           "|---|---|---|---|---|---|---|"]
+           "| Attack | Window | Verified records | Plaintexts | Identity | Latency (ms) | EPII (ms) | Checkpoint (ms) | MMR (ms) | Bytes |",
+           "|---|---|---|---|---|---|---|---|---|---|"]
     md += [f"| {r['attack']} | {r['window']} | {r['verified_records']} | {r['plaintexts']} | "
-           f"{'yes' if r['identity_resolved'] else 'no'} | {r['latency_ms']:.1f} | {r['bytes']:,} |" for r in rowsC]
+           f"{'yes' if r['identity_resolved'] else 'no'} | {r['latency_ms']:.1f} | {r.get('epii_ms', 0):.2f} | "
+           f"{r.get('checkpoint_ms', 0):.2f} | {r.get('mmr_ms', 0):.2f} | {r['bytes']:,} |" for r in rowsC]
     md.append(f"\nTotal time {time.time() - t0:.0f}s")
-    (RESULTS / "e5_summary.md").write_text("\n".join(md) + "\n")
+    (RESULTS / f"{pre}summary.md").write_text("\n".join(md) + "\n")
     print("\n".join(md))
 
 

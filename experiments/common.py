@@ -9,6 +9,12 @@ Systems (DS2, Tables "Systems compared" and "Ablations")
   A3   no label-free screening
   A4   persistent tokens (no epoch rotation)
   A5   no minimum support (k_min = 0)
+Journal version (instructor's revision with LAPH and ACL)
+  J    SIEMCrypt with authenticated EPII, ACL, graph and state lineage (cfg.acl); the
+       journal's full configuration "S" (no padding, NP)
+  LAPH leakage-adaptive pattern hiding over real values
+  FP   fixed padding over real values, one gamma for every value (matched to LAPH's budget)
+  NoHist = A2; FixedDecay lambda = lambda0; NoContract explicit history (same scores as S)
 B1-emu is NOT Wazuh: it applies Wazuh's frequency/timeframe rule semantics to the same
 normalized events, so it can run next to the prototype. The real Wazuh run is on the VM.
 """
@@ -18,6 +24,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 import statistics
 from bisect import bisect_left
 from collections import defaultdict
@@ -28,7 +35,8 @@ from siemcrypt.data.synth import GroundTruth, SynthConfig, default_profiles_and_
 from siemcrypt.model import AttackProfile, Config, Event
 from siemcrypt.system import SIEMCrypt
 
-RESULTS = Path(__file__).resolve().parents[1] / "results"
+# SIEMCRYPT_RESULTS redirects output (e.g. dry runs that must not overwrite results/)
+RESULTS = Path(os.environ.get("SIEMCRYPT_RESULTS", Path(__file__).resolve().parents[1] / "results"))
 
 BASE = Config(paillier_bits=512, agg_features=("count", "bytes"), seed=1, precompute_workers=0)
 
@@ -41,6 +49,12 @@ VARIANTS = {
     "A4": {"persistent_tokens": True},
     "A5": {"k_min": 0},
     "B3": {"full_he": True},
+    "J": {"acl": True},
+    "LAPH": {"padding": "laph"},
+    "FP": {"padding": "fixed", "gamma": 1.5},
+    "NoHist": {"history": False},
+    "FixedDecay": {"fixed_decay": True},
+    "NoContract": {"contract": False},
 }
 
 

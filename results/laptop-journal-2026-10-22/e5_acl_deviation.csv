@@ -1,0 +1,66 @@
+deviation,stage,seed,detected,acl_reject,graph_reject,graph_omitted,drift_reject,releases,contexts,inconsistent_admitted
+Omit queried posting entry,Authenticated EPII,1,1,3,0,0,0,0,3,0
+Omit queried posting entry,Authenticated EPII,2,1,3,0,0,0,0,3,0
+Omit queried posting entry,Authenticated EPII,3,1,3,0,0,0,0,3,0
+Omit queried posting entry,Authenticated EPII,4,1,3,0,0,0,0,3,0
+Omit queried posting entry,Authenticated EPII,5,1,3,0,0,0,0,3,0
+Substitute posting entry,Authenticated EPII,1,1,3,0,0,0,0,3,0
+Substitute posting entry,Authenticated EPII,2,1,3,0,0,0,0,3,0
+Substitute posting entry,Authenticated EPII,3,1,3,0,0,0,0,3,0
+Substitute posting entry,Authenticated EPII,4,1,3,0,0,0,0,3,0
+Substitute posting entry,Authenticated EPII,5,1,3,0,0,0,0,3,0
+Replay stale index state,Checkpoint/EPII root,1,1,3,0,0,0,0,3,0
+Replay stale index state,Checkpoint/EPII root,2,1,3,0,0,0,0,3,0
+Replay stale index state,Checkpoint/EPII root,3,1,3,0,0,0,0,3,0
+Replay stale index state,Checkpoint/EPII root,4,1,3,0,0,0,0,3,0
+Replay stale index state,Checkpoint/EPII root,5,1,3,0,0,0,0,3,0
+Bind to stale checkpoint,Context commitment,1,1,3,0,0,0,0,3,0
+Bind to stale checkpoint,Context commitment,2,1,3,0,0,0,0,3,0
+Bind to stale checkpoint,Context commitment,3,1,3,0,0,0,0,3,0
+Bind to stale checkpoint,Context commitment,4,1,3,0,0,0,0,3,0
+Bind to stale checkpoint,Context commitment,5,1,3,0,0,0,0,3,0
+Omit valid candidate,Candidate recomputation,1,1,3,0,0,0,0,3,0
+Omit valid candidate,Candidate recomputation,2,1,3,0,0,0,0,3,0
+Omit valid candidate,Candidate recomputation,3,1,3,0,0,0,0,3,0
+Omit valid candidate,Candidate recomputation,4,1,3,0,0,0,0,3,0
+Omit valid candidate,Candidate recomputation,5,1,3,0,0,0,0,3,0
+Add invalid candidate,Candidate recomputation,1,1,3,0,0,0,0,3,0
+Add invalid candidate,Candidate recomputation,2,1,3,0,0,0,0,3,0
+Add invalid candidate,Candidate recomputation,3,1,3,0,0,0,0,3,0
+Add invalid candidate,Candidate recomputation,4,1,3,0,0,0,0,3,0
+Add invalid candidate,Candidate recomputation,5,1,3,0,0,0,0,3,0
+Modify HE aggregate,ACL recomputation,1,1,3,0,0,0,0,3,0
+Modify HE aggregate,ACL recomputation,2,1,3,0,0,0,0,3,0
+Modify HE aggregate,ACL recomputation,3,1,3,0,0,0,0,3,0
+Modify HE aggregate,ACL recomputation,4,1,3,0,0,0,0,3,0
+Modify HE aggregate,ACL recomputation,5,1,3,0,0,0,0,3,0
+Aggregate wrong candidate set,ACL recomputation,1,1,3,0,0,0,0,3,0
+Aggregate wrong candidate set,ACL recomputation,2,1,3,0,0,0,0,3,0
+Aggregate wrong candidate set,ACL recomputation,3,1,3,0,0,0,0,3,0
+Aggregate wrong candidate set,ACL recomputation,4,1,3,0,0,0,0,3,0
+Aggregate wrong candidate set,ACL recomputation,5,1,3,0,0,0,0,3,0
+Modify contracted relation,Graph-lineage verification,1,1,0,1,0,0,3,3,0
+Modify contracted relation,Graph-lineage verification,2,1,0,1,0,0,3,3,0
+Modify contracted relation,Graph-lineage verification,3,1,0,2,0,0,3,3,0
+Modify contracted relation,Graph-lineage verification,4,1,0,1,0,0,3,3,0
+Modify contracted relation,Graph-lineage verification,5,1,0,2,0,0,3,3,0
+Omit contributing graph evidence,Graph-lineage verification,1,1,0,1,0,1,3,3,0
+Omit contributing graph evidence,Graph-lineage verification,2,1,0,0,1,1,3,3,0
+Omit contributing graph evidence,Graph-lineage verification,3,1,0,2,0,1,3,3,0
+Omit contributing graph evidence,Graph-lineage verification,4,1,0,0,1,1,3,3,0
+Omit contributing graph evidence,Graph-lineage verification,5,1,0,2,0,1,3,3,0
+Modify graph evidence/features,C_G/recomputation,1,1,0,1,0,0,3,3,0
+Modify graph evidence/features,C_G/recomputation,2,1,0,1,0,0,3,3,0
+Modify graph evidence/features,C_G/recomputation,3,1,0,1,0,0,3,3,0
+Modify graph evidence/features,C_G/recomputation,4,1,0,1,0,0,3,3,0
+Modify graph evidence/features,C_G/recomputation,5,1,0,1,0,0,3,3,0
+Suppress an entity update,Graph-lineage verification,1,1,0,0,1,0,3,3,0
+Suppress an entity update,Graph-lineage verification,2,1,0,0,1,0,3,3,0
+Suppress an entity update,Graph-lineage verification,3,1,0,0,1,0,3,3,0
+Suppress an entity update,Graph-lineage verification,4,1,0,0,1,0,3,3,0
+Suppress an entity update,Graph-lineage verification,5,1,0,0,1,0,3,3,0
+Modify drift D_e,Graph-lineage verification,1,1,0,0,0,1,3,3,0
+Modify drift D_e,Graph-lineage verification,2,1,0,0,0,1,3,3,0
+Modify drift D_e,Graph-lineage verification,3,1,0,0,0,1,3,3,0
+Modify drift D_e,Graph-lineage verification,4,1,0,0,0,1,3,3,0
+Modify drift D_e,Graph-lineage verification,5,1,0,0,0,1,3,3,0

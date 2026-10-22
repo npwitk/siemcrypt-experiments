@@ -22,12 +22,16 @@ day on the development scenarios), which is how a SOC sizes alert volume.
 
 Usage:  python experiments/ait_eval.py [--parts e1,e3,e2] [--quick] [--workers 8]
                                        [--data ~/data/ait-ldsv2]
+        journal ablations, without overwriting the main files (outputs ait_<tag>_*):
+        python experiments/ait_eval.py --parts e1,e3 --tag journal --systems S,A2,FixedDecay,LAPH,FP \
+                                       --rules B1-default --leak-systems S,FP,LAPH,SD --fp-gamma 1.7
 """
 
 from __future__ import annotations
 
 import argparse
 import math
+import os
 import platform
 import statistics
 import sys
@@ -71,6 +75,8 @@ from siemcrypt.data.ait import (  # noqa: E402
 DEV = ["russellmitchell", "santos", "fox"]
 TEST = ["harrison", "wardbeck", "shaw", "wheeler", "wilson"]
 SYSTEMS = ["S", "SD", "B2", "A2"]
+LEAK_SYSTEMS = ["S", "SD", "A4", "SD+A4"]
+FP_GAMMA = float(os.environ.get("SIEMCRYPT_FP_GAMMA", 1.5))  # env: inherited by spawned workers
 ALERTS_PER_DAY = 2          # benign alert budget per class per day (development scenarios)
 EPOCH = 3600.0
 DATA = Path.home() / "data" / "ait-ldsv2"
@@ -98,10 +104,14 @@ def dev_stream(name: str, max_epoch: int | None):
 
 
 # ============================================================================ workers
+def sys_config(system: str):
+    return config(system, gamma=FP_GAMMA) if system == "FP" else config(system)
+
+
 def w_dev(system: str, profiles, name: str, max_epoch: int | None):
     ev, truth, n_ep = dev_stream(name, max_epoch)
     _, contexts = ait_profiles_and_contexts()
-    s = run(config(system), ev, profiles, contexts)
+    s = run(sys_config(system), ev, profiles, contexts)
     pos = {(gt.user, gt.attack_class, e) for gt in truth for e in gt.epochs}
     bad = attack_entities(ev)
     return s.ee.score_log, pos, bad, n_ep
@@ -114,7 +124,7 @@ def w_test(system: str, params, name: str, max_epoch: int | None):
         alerts, raw = rule_alerts(ev, params, EPOCH), rule_scores(ev, params, EPOCH)
     else:
         _, contexts = ait_profiles_and_contexts()
-        s = run(config(system), ev, params, contexts)
+        s = run(sys_config(system), ev, params, contexts)
         alerts, unl = siemcrypt_alerts(s)
         raw = siemcrypt_scores(s)
     scores, per = score_alerts(alerts, truth, CLASSES)
@@ -132,7 +142,7 @@ def w_inject(system: str, params, name: str, family: str, rate: int, span: int, 
         alerts, raw = rule_alerts(ev2, params, EPOCH), rule_scores(ev2, params, EPOCH)
     else:
         _, contexts = ait_profiles_and_contexts()
-        s = run(config(system), ev2, params, contexts)
+        s = run(sys_config(system), ev2, params, contexts)
         alerts, _ = siemcrypt_alerts(s)
         raw = siemcrypt_scores(s)
     sc, per = score_alerts(alerts, [gt], [family])
@@ -145,12 +155,13 @@ def w_inject(system: str, params, name: str, family: str, rate: int, span: int, 
 def w_leak(name_sys: str, scen: str, max_epoch: int | None):
     from siemcrypt.data.ait import load_scenario as _ls  # noqa: F401
 
-    variant, persistent = {"S": ("S", False), "SD": ("SD", False), "A4": ("S", True), "SD+A4": ("SD", True)}[name_sys]
+    variant, persistent = {"A4": ("S", True), "SD+A4": ("SD", True)}.get(name_sys, (name_sys, False))
     ev, _, _ = scenario(scen, max_epoch)
     day = 24 * EPOCH
     aux, target = [e for e in ev if e.ts < day], [e for e in ev if e.ts >= day]
     _, contexts = ait_profiles_and_contexts()
-    s = run(config(variant, persistent_tokens=persistent), target, None, contexts)
+    extra = {"gamma": FP_GAMMA} if variant == "FP" else {}
+    s = run(config(variant, persistent_tokens=persistent, **extra), target, None, contexts)
     out = dict(system=name_sys, scenario=scen, decoy_ratio=s.ee.stats["decoy"] / max(s.ee.stats["real"], 1))
     for dim in ("U", "R"):
         r = frequency_attack(s, aux_distribution(aux, dim), dim, cumulative=persistent)
@@ -209,7 +220,7 @@ def rules(max_epoch):
 
 # ============================================================================ main
 def main() -> None:
-    global DATA, DEV, TEST
+    global DATA, DEV, TEST, SYSTEMS, LEAK_SYSTEMS, FP_GAMMA
     ap = argparse.ArgumentParser()
     ap.add_argument("--parts", default="e1,e3,e2")
     ap.add_argument("--quick", action="store_true", help="first 24 epochs, 1 test scenario, few rates")
@@ -220,7 +231,16 @@ def main() -> None:
     ap.add_argument("--data", default=str(DATA))
     ap.add_argument("--dev", default=",".join(DEV), help="development scenarios (comma separated)")
     ap.add_argument("--test", default=",".join(TEST), help="test scenarios (comma separated)")
+    ap.add_argument("--systems", default=",".join(SYSTEMS), help="SIEMCrypt systems for e1")
+    ap.add_argument("--rules", default="B1-default,B1-tuned", help="rule baselines for e1 ('' for none)")
+    ap.add_argument("--leak-systems", default=",".join(LEAK_SYSTEMS), help="systems for e3")
+    ap.add_argument("--fp-gamma", type=float, default=FP_GAMMA, help="gamma of the FP system")
+    ap.add_argument("--tag", default="", help="output files ait_<tag>_*")
     args = ap.parse_args()
+    SYSTEMS, LEAK_SYSTEMS, FP_GAMMA = args.systems.split(","), args.leak_systems.split(","), args.fp_gamma
+    os.environ["SIEMCRYPT_FP_GAMMA"] = str(FP_GAMMA)
+    rule_systems = [r for r in args.rules.split(",") if r]
+    pre = f"ait_{args.tag}_" if args.tag else "ait_"
     DEV, TEST = args.dev.split(","), args.test.split(",")
     if set(DEV) & set(TEST):
         print(f"WARNING: scenarios in both development and test: {set(DEV) & set(TEST)} (smoke test only)")
@@ -245,7 +265,7 @@ def main() -> None:
             prof = calibrate_all(ex, SYSTEMS, max_ep)
             b1d, b1t = rules(max_ep)
             params = {**prof, "B1-default": b1d, "B1-tuned": b1t}
-            systems = SYSTEMS + ["B1-default", "B1-tuned"]
+            systems = SYSTEMS + rule_systems
             print(f"calibrated in {time.time() - t0:.0f}s", flush=True)
 
             jobs = [(sy, params[sy], sc, max_ep) for sy in systems for sc in tests]
@@ -260,8 +280,8 @@ def main() -> None:
                 for aid, (d, delay) in r["per"].items():
                     inc.append(dict(system=r["system"], scenario=r["scenario"], incident=aid,
                                     attack_class=r["kinds"][aid], detected=d, delay=delay))
-            write_csv("ait_e1_main.csv", rows)
-            write_csv("ait_e1_incidents.csv", inc)
+            write_csv(f"{pre}e1_main.csv", rows)
+            write_csv(f"{pre}e1_incidents.csv", inc)
             md += ["## E1-A: real attack chains (pooled over test scenarios)\n",
                    "| System | Class | Incidents | Detected | False entities | AUC | Recall@FP2 |",
                    "|---|---|---|---|---|---|---|"]
@@ -282,7 +302,7 @@ def main() -> None:
             jobsB = [(sy, params[sy], tests[(sd - 1) % len(tests)], fam, r, sp, win, sd) for sy in sys_b
                      for fam in sorted(INJECT_FAMILIES) for r in rates for sp in spans for sd in seeds if sp < win]
             resB = list(light.map(w_inject, *zip(*jobsB)))
-            write_csv("ait_e1_inject.csv", resB)
+            write_csv(f"{pre}e1_inject.csv", resB)
             for key, title in (("recall", "recall at the calibrated threshold"),
                                ("false_entities", "falsely alerted benign entities"),
                                ("recall_at_fp2", "recall@FP2 (threshold-free)")):
@@ -301,15 +321,15 @@ def main() -> None:
             print(f"E1-B done in {time.time() - t0:.0f}s", flush=True)
 
         if "e3" in parts:
-            jobs = [(n, sc, max_ep if max_ep is None else 48) for n in ("S", "SD", "A4", "SD+A4") for sc in tests]
+            jobs = [(n, sc, max_ep if max_ep is None else 48) for n in LEAK_SYSTEMS for sc in tests]
             res = list(ex.map(w_leak, *zip(*jobs)))
-            write_csv("ait_e3_leakage.csv", res)
+            write_csv(f"{pre}e3_leakage.csv", res)
             cols = [("decoy_ratio", "δ"), ("U_token_recovery", "U tokens"), ("U_volume_recovery", "U volume"),
                     ("R_token_recovery", "R tokens"), ("R_volume_recovery", "R volume"), ("decoy_auc", "Decoy AUC"),
                     ("linkage_accuracy", "Linkage"), ("linkage_chance", "Chance")]
             md += ["", "## E3: leakage on days 2-4 (prior: day 1 of the same scenario)\n",
                    "| System | " + " | ".join(c[1] for c in cols) + " |", "|---|" + "---|" * len(cols)]
-            for n in ("S", "SD", "A4", "SD+A4"):
+            for n in LEAK_SYSTEMS:
                 sel = [r for r in res if r["system"] == n]
                 md.append(f"| {n} | " + " | ".join(mean_sd([r[k] for r in sel]) for k, _ in cols) + " |")
             print(f"E3 done in {time.time() - t0:.0f}s", flush=True)
@@ -330,7 +350,7 @@ def main() -> None:
                              bytes_per_event=s.bus.total("ee", "cloud") / len(ev), ka_decryptions=s.ka.decryptions,
                              phase3_s=s.timing["phase3"], phase4_s=s.timing["phase4"], phase5_s=s.timing["phase5"]))
             print(f"  E2 {v}: {rows[-1]}", flush=True)
-        write_csv("ait_e2_throughput.csv", rows)
+        write_csv(f"{pre}e2_throughput.csv", rows)
         md += ["", f"## E2: 2048-bit throughput on {tests[0]} ({rows[0]['events']:,} events, {args.workers} workers)\n",
                "| System | δ | Online ev/s | Sustained ev/s | Offline s | Bytes / event | Phase 3+4+5 s |",
                "|---|---|---|---|---|---|---|"]
@@ -340,7 +360,7 @@ def main() -> None:
 
     md.append(f"\nTotal time {time.time() - t0:.0f}s")
     RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / "ait_summary.md").write_text("\n".join(md) + "\n")
+    (RESULTS / f"{pre}summary.md").write_text("\n".join(md) + "\n")
     print("\n".join(md))
 
 

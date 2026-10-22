@@ -96,4 +96,14 @@ class Config:
     full_he: bool = False              # B3 when True: no search scoping; every record carries
                                        # Enc(w * x_f * 1[record matches q]) for every context q and
                                        # feature f, and the cloud aggregates over the whole epoch
+    # journal version (siemcrypt/laph.py, siemcrypt/lineage.py)
+    padding: str = "dummy"             # with gamma > 1: "dummy" single-use dummy tokens (SD);
+                                       # "fixed": uniform gamma over real values (FP); "laph": LAPH
+    laph_w: tuple[float, float, float] = (0.5, 0.25, 0.25)  # (w_f, w_s, w_h)
+    laph_theta: tuple[float, float] = (0.35, 0.65)          # (theta_1, theta_2)
+    laph_gamma: tuple[float, float] = (1.5, 2.0)            # (gamma_1, gamma_2)
+    laph_hist: int = 6                 # epochs of EE history for L_stab
+    acl: bool = False                  # authenticated EPII + ACL + graph/state lineage
+    fixed_decay: bool = False          # FixedDecay ablation: lambda = lambda0 (no drift / risk terms)
+    contract: bool = True              # NoContract ablation when False: explicit per-epoch history
     seed: int | None = None

@@ -2,20 +2,24 @@
 (Phase 3) and attack-aware graph contraction (Phase 4), and answers investigation
 queries with MMR multiproofs (Phase 6, Steps 2-3).
 
-Implementation note: instead of receiving the MMR nodes from the EE, the cloud rebuilds
-each epoch MMR from the records and index entries it stores (same leaves, same order),
-which yields identical nodes without the transfer.
+With cfg.acl (journal version) it also answers queries with authenticated posting lists
+and an index proof against R_e^IDX, submits release requests Req_q to the EE instead of
+the KA (verify-before-release), and attaches C_G to every graph update.
+
+Implementation note: instead of receiving the MMR and index-dictionary nodes from the EE,
+the cloud rebuilds them from the records and index entries it stores (same leaves, same
+order), which yields identical nodes without the transfer.
 """
 
 from __future__ import annotations
 
-import math
 from collections import defaultdict
 
+from .. import lineage
 from ..bus import Bus
+from ..crypto.mdict import MerkleDict
 from ..crypto.mmr import MMR
 from ..crypto.paillier import Paillier
-from ..model import GRAPH_FEATURES, Policy
 from ..protocol import DIMS, IndexEntry, ProtectedRecord, leaf_data
 from .ka import KeyAuthority
 
@@ -23,9 +27,12 @@ DIM_IDX = {d: i for i, d in enumerate(DIMS)}
 
 
 class CloudSIEM:
-    def __init__(self, ka: KeyAuthority, bus: Bus, full_he: bool = False):
+    def __init__(self, ka: KeyAuthority, bus: Bus, full_he: bool = False, acl: bool = False):
         self.ka, self.bus = ka, bus
         self.full_he = full_he  # B3: aggregate over the whole epoch (no SG-HEF scoping)
+        self.acl = acl
+        self.ee = None  # wired by the system (release requests under ACL)
+        self._idx_cache: dict[int, MerkleDict] = {}
         self.he = Paillier(ka.pk_h)
         self.records: dict[tuple, ProtectedRecord] = {}
         self.entries: dict[tuple, IndexEntry] = {}
@@ -68,6 +75,24 @@ class CloudSIEM:
             return set(self.by_epoch[epoch])
         return set.intersection(*sets)
 
+    def _idx(self, epoch: int) -> MerkleDict:
+        if epoch not in self._idx_cache:
+            self._idx_cache[epoch] = lineage.build_index(self.entries[r] for r in self.by_epoch[epoch])
+        return self._idx_cache[epoch]
+
+    def auth_candidates(self, epoch: int, tokens: dict[str, frozenset]) -> tuple[set, dict, object]:
+        """Authenticated EPII retrieval: candidate rids, the queried posting lists, and one
+        index multiproof for their keys (membership or non-membership)."""
+        keys = lineage.query_keys(tokens)
+        postings = {}
+        for d, T in keys:
+            lst = sorted(r[1] for r in self.epii[epoch][d].get(T, ()))
+            if lst:
+                postings[(d, T)] = lst
+        proof = self._idx(epoch).prove([lineage.posting_key(d, T) for d, T in keys])
+        Q = {(epoch, i) for i in lineage.candidates_from(tokens, postings, len(self.by_epoch[epoch]))}
+        return Q, postings, proof
+
     def _sum(self, cts):
         acc = None
         for c in cts:
@@ -75,10 +100,39 @@ class CloudSIEM:
             self.he_adds += 1
         return acc if acc is not None else self.he.encrypt(0)
 
+    def acl_request(self, q: dict, feat_index: dict[str, int]) -> dict:
+        """Req_q (journal eq:release-request) with the commitments C_Q and C_A."""
+        e = q["epoch"]
+        Q, postings, proof = self.auth_candidates(e, q["tokens"])
+        aggs, realness = self.aggregate(q, Q, feat_index)
+        cp = self.checkpoints[e][0]
+        chi = lineage.c_chi(q, cp)
+        cq = lineage.c_q(chi, {r[1] for r in Q})
+        return dict(Q=Q, postings=postings, proof=proof, aggs=aggs, realness=realness,
+                    C_Q=cq, C_A=lineage.c_a(cq, q["feats"], aggs, realness))
+
+    def aggregate(self, q: dict, Q: set, feat_index: dict[str, int]):
+        def smul_count(c, w):
+            self.he_smuls += 1
+            return self.he.smul(c, w)
+
+        class _HE:
+            smul = staticmethod(smul_count)
+
+        return lineage.aggregate(q, Q, lambda r: (self.records[r].X, self.records[r].X0),
+                                 lambda r: self.entries[r].tokens[3], feat_index, _HE, self._sum)
+
     def sghef(self, queries: list[dict], feat_index: dict[str, int]) -> list[dict]:
         out = []
         for q in queries:
             e = q["epoch"]
+            if self.acl:
+                req = self.bus.send("cloud", "ee", "release_req", self.acl_request(q, feat_index))
+                z = self.ee.acl_release(q, req)
+                if z is None:  # rejected: the slot stays (fixed dimension) with no evidence
+                    z = self.ee.accepted[q["qid"]]
+                out.append(self.bus.send("ee", "cloud", "evidence_z", z))
+                continue
             Q = self.candidates(e, q["tokens"])
             if self.full_he:
                 # B3: no index scoping; aggregate the masked slot over every record of the epoch
@@ -88,20 +142,7 @@ class CloudSIEM:
                 realness = self._sum(self.records[r].X[base + len(feat_index)] for r in allr)
                 self._release(out, q, e, Q, aggs, realness)
                 continue
-            aggs = {}
-            for f in q["feats"]:
-                j = feat_index[f]
-                if q["source_weights"]:
-                    # cross-source fusion (eq:source-candidate .. eq:multisource-aggregate)
-                    parts = []
-                    for Ts, w in q["source_weights"].items():
-                        sub = [self.records[r].X[j] for r in Q if self.entries[r].tokens[3] == Ts]
-                        parts.append(self.he.smul(self._sum(sub), w))
-                        self.he_smuls += 1
-                    aggs[f] = self._sum(parts)
-                else:
-                    aggs[f] = self._sum(self.records[r].X[j] for r in Q)
-            realness = self._sum(self.records[r].X0 for r in Q)
+            aggs, realness = self.aggregate(q, Q, feat_index)
             self._release(out, q, e, Q, aggs, realness)
         return out
 
@@ -113,56 +154,18 @@ class CloudSIEM:
         out.append(dict(qid=q["qid"], attack=q["attack"], epoch=e, Q=Q, y=y, phi=phi))
 
     # ================================================================ Phase 4: graph
+    def contract(self, epoch: int, Z: list[dict]):
+        """Attack-aware graph contraction (siemcrypt/lineage.py); C_G only with ACL."""
+        return lineage.contract(Z, self.entries.__getitem__, self.graph_profiles.get(epoch, {}),
+                                lineage.H if self.acl else None)
+
     def phase4(self, epoch: int, Z: list[dict]) -> tuple[list[tuple], float]:
-        Qall = set().union(*(z["Q"] for z in Z)) if Z else set()
-        rel = {}  # (T_U, T_R, T_C) -> [n, sources, bucket histogram, refs]
-        for rid in Qall:
-            tu, tr, tc, ts = self.entries[rid].tokens
-            r = rel.setdefault((tu, tr, tc), [0, set(), defaultdict(int), set()])
-            r[0] += 1
-            r[1].add(ts)
-            r[2][self.entries[rid].bucket] += 1
-            r[3].add(rid)
-        updates = []
-        profiles = self.graph_profiles.get(epoch, {})
-        slots = defaultdict(list)
-        for z in Z:
-            slots[z["attack"]].append(z)
-        for a, cat_tokens in profiles.items():
-            proj = {k: v for k, v in rel.items() if k[2] in cat_tokens}  # eq:attack-projection
-            by_entity = defaultdict(list)
-            for k, v in proj.items():
-                by_entity[k[0]].append((k, v))
-            for tu, nbh in by_entity.items():
-                srcs, buckets, res, refs = set(), set(), set(), set()
-                deg = 0
-                for (_, tr, _), (n, s, hist, rr) in nbh:
-                    deg += n
-                    srcs |= s
-                    buckets |= set(hist)
-                    res.add(tr)
-                    refs |= rr
-                g = [deg, len(res), len(srcs), len(nbh), len(buckets)]
-                assert len(g) == len(GRAPH_FEATURES)
-                # Fuse_{F_a}: one slot per context of class a; HIDE -> 0 (fixed dimension)
-                y = []
-                for z in slots[a]:
-                    hit = bool(z["Q"] & refs)
-                    y.append(sum(v for v in z["y"].values() if v is not None) if hit else 0.0)
-                upd = (tu, a, g + y, frozenset(refs))
-                updates.append(self.bus.send("cloud", "ee", "update", upd))
-        # drift D_e from a token-independent epoch profile (eq:epoch-profile, eq:environment-drift)
-        if rel:
-            vals = list(rel.values())
-            mu = [len(vals), sum(v[0] for v in vals) / len(vals),
-                  sum(len(v[1]) for v in vals) / len(vals), sum(len(v[2]) for v in vals) / len(vals)]
-        else:
-            mu = [0.0, 0.0, 0.0, 0.0]
-        if self.mu_prev is None:
-            drift = 0.0
-        else:
-            num = math.sqrt(sum((a - b) ** 2 for a, b in zip(mu, self.mu_prev)))
-            drift = num / (math.sqrt(sum(b * b for b in self.mu_prev)) + 1e-9)
+        """Updates (T_u, a, z, refs, C_G) and the drift D_e from the token-independent epoch
+        profile (eq:epoch-profile, eq:environment-drift)."""
+        updates, mu = self.contract(epoch, Z)
+        for upd in updates:
+            self.bus.send("cloud", "ee", "update", upd)
+        drift = lineage.drift(mu, self.mu_prev)
         self.mu_prev = mu
         self.bus.send("cloud", "ee", "drift", drift)
         return updates, drift
@@ -170,6 +173,10 @@ class CloudSIEM:
     # ================================================================ Phase 6: investigation
     def inv_query(self, epoch: int, tokens: dict[str, frozenset]) -> set:
         return self.candidates(epoch, tokens)
+
+    def inv_query_auth(self, epoch: int, tokens: dict[str, frozenset]) -> tuple[set, dict, object]:
+        """Historical retrieval with authenticated postings (journal eq:investigation-index-verification)."""
+        return self.auth_candidates(epoch, tokens)
 
     def _mmr(self, epoch: int) -> MMR:
         if epoch not in self._mmr_cache:

@@ -31,10 +31,11 @@ class SIEMCrypt:
         self.ka = KeyAuthority(cfg)
         self.bus.ct_bytes = self.ka.pk_h.ciphertext_bytes()
         self.td = TokenDirectory()
-        self.cloud = CloudSIEM(self.ka, self.bus, cfg.full_he)
+        self.cloud = CloudSIEM(self.ka, self.bus, cfg.full_he, cfg.acl)
         self.ee = EdgeEncryptor(cfg, self.ka, self.td, self.bus, {p.name: p for p in profiles}, contexts)
-        self.sa = SecurityAnalyst(self.bus, cfg.default_lookback)
+        self.sa = SecurityAnalyst(self.bus, cfg.default_lookback, cfg.acl)
         self.ee.cloud, self.ee.sa = self.cloud, self.sa
+        self.cloud.ee = self.ee
         self.sa.ee, self.sa.cloud, self.sa.ka, self.sa.td = self.ee, self.cloud, self.ka, self.td
         self.feat_index = {f: j for j, f in enumerate(cfg.agg_features)}
         self.reports: list[EpochReport] = []

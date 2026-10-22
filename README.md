@@ -15,6 +15,7 @@ The prototype implements all six phases of the paper with explicit parties and m
 Cryptographic building blocks are in `siemcrypt/crypto/`:
 - `paillier.py`: Paillier with parallel offline randomizer precomputation.
 - `mmr.py`: domain-separated Merkle Mountain Range with multiproofs.
+- `mdict.py`: sorted Merkle dictionary with membership and non-membership multiproofs (authenticated EPII).
 - `cms.py`: Count-Min sketch.
 - `primitives.py`: AES-GCM, HMAC PRF, HKDF and Ed25519, from `cryptography`.
 
@@ -56,6 +57,10 @@ python tools/ait_fetch.py              # all 8 scenarios; rerun to resume
 | B8 | MK-Tree (Saengthong et al., IEEE OJ-CS 2026): ancestor-assisted Merkle verification with DHT certificates and a root-of-roots (`siemcrypt/baselines/mktree.py`) |
 | B9 | Zhang et al. (IEEE TC 2025): pairing-based block tags and smart-contract audits on BN254 (`siemcrypt/baselines/zhang.py`; timing from `tools/pairing_bench`) |
 | B1-wazuh | Real Wazuh 4.8 manager with default rules, AIT lines replayed through logtest under libfaketime (`tools/wazuh_setup.sh`, `tools/wazuh_replay.py`) |
+| J | Journal version: authenticated EPII, verify-before-release ACL, graph lineage C_G and state commitments C_H (`acl=True`; `siemcrypt/lineage.py`). Same scores as S on an honest cloud |
+| LAPH | Leakage-adaptive pattern hiding: exposure-tiered decoys over real values (`padding="laph"`; `siemcrypt/laph.py`) |
+| FP | Fixed padding over real values, one gamma for every value (`padding="fixed"`), matched to LAPH's decoy budget |
+| NoHist / FixedDecay / NoContract | No history (= A2) / lambda = lambda0 (`fixed_decay=True`) / explicit per-epoch history instead of contraction (`contract=False`, same scores as S) |
 
 Switches live in `siemcrypt/model.py:Config`.
 
@@ -73,6 +78,12 @@ Switches live in `siemcrypt/model.py:Config`.
 | `experiments/e5_integrity.py` | E5: 12 tampering types, multiproof vs. separate paths, investigation latency | `results/e5_*` |
 | `experiments/ait_eval.py` | E1, E2 and E3 on AIT-LDSv2: real attack chains, injected low-and-slow attacks on real background, leakage, 2048-bit throughput | `results/ait_*` |
 | `experiments/smoke.py` | End-to-end run of Phases 1–6 | stdout |
+| `experiments/run_journal.sh` | Journal-version experiments only (below) | `results/` or `$SIEMCRYPT_RESULTS` |
+| `experiments/e5_acl.py` | Journal Exp 5: 13 cloud-side analytical deviations against ACL | `results/e5_acl_*` |
+| `experiments/e5_integrity.py --variant J` | Journal Exp 6: investigation tampering with dual authentication; EPII / checkpoint / MMR latency | `results/e5_J_*` |
+| `experiments/e2_acl_scale.py` | Journal Exp 2/5: authenticated retrieval and ACL latency vs. selectivity and repository size (2048-bit) | `results/e2_acl_scale.*` |
+| `experiments/e3_laph.py` | Journal Exp 3: NP / FP / LAPH at a matched budget, exposure-stratified recovery and linkage, budget sweep | `results/e3_laph_*` |
+| `experiments/e4_temporal.py` | Journal Exp 4: S / NoHist / FixedDecay / B1 low-and-slow, drift sweep, state growth vs. NoContract | `results/e4_temporal_*` |
 
 Methodology:
 - **Calibration.** Weights are learned by logistic regression and thresholds are calibrated on development data that is never used for testing: separate seeds for synthetic data, separate scenarios for AIT.
