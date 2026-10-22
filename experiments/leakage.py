@@ -9,6 +9,7 @@ the attacks never read; they are used only to score the attacks.
 
 from __future__ import annotations
 
+import hashlib
 from collections import Counter, defaultdict
 
 import numpy as np
@@ -42,7 +43,19 @@ def aux_distribution(events: list[Event], dim: str) -> list[str]:
     return [v for v, _ in Counter(getattr(ev, ATTR[dim]) for ev in events).most_common()]
 
 
-def frequency_attack(s: SIEMCrypt, aux_rank: list[str], dim: str, cumulative: bool = False) -> dict:
+def _ranked(cnt: Counter, tiebreak: str, buckets=None) -> list:
+    """Tokens by decreasing count. Ties: "order" = first appearance in the cloud's record
+    order (heavy entities appear early, a side channel), "random" = keyed hash of the token,
+    "buckets" = more active buckets first, then hash (the strongest of the three)."""
+    if tiebreak == "order":
+        return [t for t, _ in cnt.most_common()]
+    if tiebreak == "random":
+        return sorted(cnt, key=lambda t: (-cnt[t], hashlib.sha256(t).digest()))
+    return sorted(cnt, key=lambda t: (-cnt[t], -len(buckets[t]), hashlib.sha256(t).digest()))
+
+
+def frequency_attack(s: SIEMCrypt, aux_rank: list[str], dim: str, cumulative: bool = False,
+                     tiebreak: str = "order") -> dict:
     """Map the i-th most frequent token to the i-th most frequent auxiliary value.
 
     cumulative=True accumulates counts over all epochs, which is possible only when tokens
@@ -61,8 +74,11 @@ def frequency_attack(s: SIEMCrypt, aux_rank: list[str], dim: str, cumulative: bo
         if cumulative:
             acc.update(cnt)
             cnt = acc
+        bks = defaultdict(set)
+        for _, ent in by_ep[e]:
+            bks[ent.tokens[pos]].add(ent.bucket)
         guess = {tok: aux_rank[i] if i < len(aux_rank) else None
-                 for i, (tok, _) in enumerate(cnt.most_common())}
+                 for i, tok in enumerate(_ranked(cnt, tiebreak, bks))}
         real = truth[(e, dim)] if not cumulative else {t: v for (ep, d), m in truth.items() if d == dim for t, v in m.items()}
         real_cur = {t: real[t] for t in Counter(ent.tokens[pos] for _, ent in by_ep[e]) if t in real}
         if not real_cur:
@@ -202,3 +218,37 @@ def linkage_attack(s: SIEMCrypt, max_tokens: int = 2000) -> dict:
         per_value += [(e1, uA[t], match.get(t) == t2) for t, t2 in targets.items()]
     return dict(linkage_accuracy=float(np.mean(accs)) if accs else None, per_value=per_value,
                 chance=float(np.mean([1 / max(len({ent.tokens[0] for _, ent in by_ep[e]}), 1) for e in eps])))
+
+def decoy_aware_frequency(s: SIEMCrypt, aux_rank: list[str], dim: str = "U") -> dict:
+    """Frequency analysis after discounting decoys: a random forest trained with labels on the
+    first half of the epochs (a strong adversary) estimates P(decoy) for every record of the
+    second half; each token's count becomes its expected number of real records, and tokens
+    are rank-matched as in frequency_attack. Without decoys this equals frequency_attack."""
+    from sklearn.ensemble import RandomForestClassifier
+
+    X, y, ep = record_features(s)
+    truth = token_truth(s)
+    by_ep = entries_by_epoch(s)
+    pos = DIM_POS[dim]
+    cut = np.median(np.unique(ep))
+    p_dec = np.zeros(len(y))
+    if y.sum() and (ep > cut).any():
+        clf = RandomForestClassifier(n_estimators=200, min_samples_leaf=5, random_state=0, n_jobs=1)
+        clf.fit(X[ep <= cut], y[ep <= cut])
+        p_dec[ep > cut] = clf.predict_proba(X[ep > cut])[:, 1]
+    # record_features iterates entries_by_epoch in the same order
+    rates, per_value, k = [], [], 0
+    for e, items in by_ep.items():
+        w = Counter()
+        for _, ent in items:
+            w[ent.tokens[pos]] += 1 - p_dec[k]
+            k += 1
+        if e <= cut:
+            continue
+        guess = {tok: aux_rank[i] if i < len(aux_rank) else None
+                 for i, tok in enumerate(sorted(w, key=lambda t: (-w[t], hashlib.sha256(t).digest())))}
+        real_cur = {t: v for t, v in truth[(e, dim)].items() if t in w}
+        ok = [t for t, v in real_cur.items() if guess.get(t) == v]
+        per_value += [(e, v, guess.get(t) == v) for t, v in real_cur.items()]
+        rates.append(len(ok) / max(len(real_cur), 1))
+    return dict(token_recovery=float(np.mean(rates)) if rates else None, per_value=per_value)

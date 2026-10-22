@@ -114,6 +114,10 @@ class EdgeEncryptor:
         self.accepted: dict[str, dict] = {}             # qid -> accepted Phase 3 evidence (cfg.acl)
         self.mu_prev = None
         self.exposure = ExposureTracker(cfg) if cfg.padding == "laph" else None
+        self._epoch_scope = cfg.laph_scope == "epoch" and (
+            cfg.padding == "laph" or (cfg.padding == "fixed" and cfg.gamma > 1))
+        self.epoch_events: list[Event] = []    # epoch-scoped padding holds the epoch here
+        self._queued: list[_Pending] = []      # decoys planned for the bucket being closed
         if cfg.acl and cfg.full_he:
             raise ValueError("ACL is defined for SG-HEF, not for the full-HE baseline")
         self._tok_cache: dict[tuple[int, str, str], bytes] = {}
@@ -156,11 +160,18 @@ class EdgeEncryptor:
     # ================================================================ Phase 1/2: epochs and ingestion
     def start_epoch(self, epoch: int) -> None:
         self.epoch = epoch
+        self.epoch_start = (epoch - 1) * self.cfg.epoch_len
         self.keys = self.bus.send("ka", "ee", "epoch_keys", self.ka.epoch_keys(epoch))
         self.mmr = MMR()
         self.epoch_entries, self.epoch_X, self.accepted = {}, {}, {}
 
     def ingest(self, ev: Event) -> None:
+        if self._epoch_scope:
+            self.epoch_events.append(ev)
+            return
+        self._ingest_bucketed(ev)
+
+    def _ingest_bucketed(self, ev: Event) -> None:
         b = int(ev.ts // self.cfg.bucket_len)
         if self.bucket is not None and b != self.bucket:
             self.close_bucket()
@@ -170,21 +181,57 @@ class EdgeEncryptor:
             self.cms_cur.update(H(ev.user.encode()))
             self.cms_cur.update(H(encode(ev.user, ev.res, ev.cat)))
 
-    def _real_value_decoys(self, events: list[Event], real_lengths: list[int]) -> list[_Pending]:
-        """LAPH (cfg.padding == "laph") or fixed padding over real values ("fixed")."""
+    def _plan(self, events: list[Event]) -> list[tuple]:
+        """Decoy plan over real values: LAPH (cfg.padding == "laph") or fixed padding ("fixed")."""
         if self.cfg.padding == "laph":
             gamma_of = {k: self.exposure.gamma(L) for k, L in self.exposure.scores(events).items()}
         else:
             gamma_of = {(d, v): self.cfg.gamma for ev in events for d, v in (("U", ev.user), ("R", ev.res))}
-        out = []
-        for u, r, c, s in plan_decoys(events, gamma_of, self.rng):
-            toks = tuple(self.token(d, v) for d, v in zip(DIMS, (u, r, c, s)))
-            n = self.rng.choice(real_lengths)
-            out.append(_Pending(toks, {}, self.rng.randbytes(n) if hasattr(self.rng, "randbytes") else bytes(n), 1, None))
-        return out
+        return plan_decoys(events, gamma_of, self.rng)
+
+    def _pending_decoy(self, u, r, c, s, n: int) -> _Pending:
+        """A decoy over real values; n = payload length of the real event it was copied from."""
+        toks = tuple(self.token(d, v) for d, v in zip(DIMS, (u, r, c, s)))
+        return _Pending(toks, {}, self.rng.randbytes(n) if hasattr(self.rng, "randbytes") else bytes(n), 1, None)
+
+    def _real_value_decoys(self, events: list[Event], real_lengths: list[int]) -> list[_Pending]:
+        return [self._pending_decoy(u, r, c, s, n) for u, r, c, s, _, n in self._plan(events)]
+
+    def _flush_epoch(self) -> None:
+        """Epoch-scoped padding (D26): plan decoys on epoch counts and water-fill each entity's
+        decoys into the epoch's buckets (always the bucket where that entity's count is lowest),
+        so padded entities of one tier get the same total and a flat bucket profile; then process
+        the epoch bucket by bucket as usual."""
+        events, self.epoch_events = sorted(self.epoch_events, key=lambda x: x.ts), []
+        if not events:
+            return
+        by_b = defaultdict(list)
+        for ev in events:
+            by_b[int(ev.ts // self.cfg.bucket_len)].append(ev)
+        first = int(self.epoch_start // self.cfg.bucket_len)
+        buckets = list(range(first, first + int(self.cfg.epoch_len // self.cfg.bucket_len)))
+        load = defaultdict(Counter)  # user -> bucket -> records so far
+        for ev in events:
+            load[ev.user][int(ev.ts // self.cfg.bucket_len)] += 1
+        planned = defaultdict(list)
+        for u, r, c, s, _, n in self._plan(events):
+            lo = min(load[u][b] for b in buckets)
+            b = self.rng.choice([b for b in buckets if load[u][b] == lo])
+            load[u][b] += 1
+            planned[b].append(self._pending_decoy(u, r, c, s, n))
+        for b in sorted(set(by_b) | set(planned)):
+            self._queued = planned.pop(b, [])
+            self.bucket = b
+            for ev in by_b.get(b, []):
+                self._ingest_bucketed(ev)
+            self.close_bucket()
+        self.bucket = None
 
     def _decoys(self, real_tokens: list[tuple], real_lengths: list[int]) -> list[_Pending]:
         """Frequency-hiding padding for one bucket (Phase 1, Step 5)."""
+        if self._epoch_scope:
+            out, self._queued = self._queued, []
+            return out
         if self.cfg.padding == "laph" or (self.cfg.padding == "fixed" and self.cfg.gamma > 1):
             return self._real_value_decoys(self.bucket_events, real_lengths) if real_tokens else []
         g = self.cfg.gamma
@@ -240,7 +287,7 @@ class EdgeEncryptor:
         return tuple(out)
 
     def close_bucket(self) -> None:
-        if not self.bucket_events:
+        if not self.bucket_events and not (self._epoch_scope and self._queued):
             return
         e, b = self.epoch, self.bucket
         real = [
@@ -290,6 +337,8 @@ class EdgeEncryptor:
         self.bucket_events = []
 
     def end_epoch(self) -> tuple[tuple, bytes]:
+        if self._epoch_scope:
+            self._flush_epoch()
         self.close_bucket()
         self.bucket = None
         if self.exposure is not None:

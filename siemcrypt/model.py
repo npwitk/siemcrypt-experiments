@@ -103,6 +103,7 @@ class Config:
     laph_theta: tuple[float, float] = (0.35, 0.65)          # (theta_1, theta_2)
     laph_gamma: tuple[float, float] = (1.5, 2.0)            # (gamma_1, gamma_2)
     laph_hist: int = 6                 # epochs of EE history for L_stab
+    laph_scope: str = "bucket"         # real-value padding scope: "bucket" (journal draft) or "epoch" (D26)
     acl: bool = False                  # authenticated EPII + ACL + graph/state lineage
     fixed_decay: bool = False          # FixedDecay ablation: lambda = lambda0 (no drift / risk terms)
     contract: bool = True              # NoContract ablation when False: explicit per-epoch history

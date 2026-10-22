@@ -19,6 +19,13 @@ Decoys reuse real values: entity and resource deficits are filled jointly, prefe
 existing relation of the bucket whose both ends still have a deficit, otherwise drawing the
 counterpart from the bucket's empirical conditional relation distribution. The category and
 source of a decoy are drawn from the real events of the chosen relation.
+
+Scope (cfg.laph_scope). "bucket" is the journal draft: scores, tiers and deficits per bucket.
+Because the cloud also sees epoch totals and padding only adds records, per-bucket tiers
+leave the epoch-level frequency ranking intact (results/laptop-journal-2026-10-22). "epoch"
+(D26): the EE holds the epoch's events until the epoch closes (Phases 3-5 run then anyway),
+scores and tiers every value on its epoch count, and spreads each decoy over the buckets in
+which its relation really occurred, so equal tier targets give equal epoch totals.
 """
 
 from __future__ import annotations
@@ -81,7 +88,9 @@ class ExposureTracker:
 
 
 def plan_decoys(events: list[Event], gamma_of: dict[tuple[str, str], float], rng) -> list[tuple]:
-    """Decoy (user, res, cat, src) tuples for one bucket that fill the deficits of gamma_of."""
+    """Decoy (user, res, cat, src, ts, payload length) tuples that fill the deficits of gamma_of
+    over `events` (one bucket, or a whole epoch); everything but the identities is copied from a
+    real event of the relation, so the ciphertext length matches real records of that kind."""
     cnt = {"U": Counter(ev.user for ev in events), "R": Counter(ev.res for ev in events)}
     zeta = {(d, v): tier(c, gamma_of.get((d, v), 1.0)) - c for d in cnt for v, c in cnt[d].items()}
     rel = Counter((ev.user, ev.res) for ev in events)
@@ -91,7 +100,7 @@ def plan_decoys(events: list[Event], gamma_of: dict[tuple[str, str], float], rng
         by_r[r][u] += n
     cs = defaultdict(list)
     for ev in events:
-        cs[(ev.user, ev.res)].append((ev.cat, ev.src))
+        cs[(ev.user, ev.res)].append((ev.cat, ev.src, ev.ts, len(ev.payload)))
 
     def draw(counter: Counter):
         keys = sorted(counter)
@@ -111,8 +120,12 @@ def plan_decoys(events: list[Event], gamma_of: dict[tuple[str, str], float], rng
     res = sorted(r for r in cnt["R"] if zeta[("R", r)] > 0)
     rng.shuffle(res)
     for r in res:
-        while zeta[("R", r)] > 0:
-            pairs.append((draw(by_r[r]), r))
+        # entity tiers stay exact: the counterpart must be an unpadded entity of the relation;
+        # without one the resource deficit is left open (resource tiers are best effort,
+        # identities are what the cloud wants)
+        free = Counter({u: n for u, n in by_r[r].items() if gamma_of.get(("U", u), 1.0) <= 1})
+        while free and zeta[("R", r)] > 0:
+            pairs.append((draw(free), r))
             zeta[("R", r)] -= 1
     return [(u, r, *rng.choice(cs[(u, r)])) for u, r in pairs]
 

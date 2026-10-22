@@ -149,7 +149,7 @@ def test_laph_deficits_fill_tiers_with_real_relations():
     decoys = plan_decoys(events, gamma_of, rng)
     rel = {(ev.user, ev.res) for ev in events}
     cs = {(ev.user, ev.res, ev.cat, ev.src) for ev in events}
-    assert all((u, r) in rel and (u, r, c, s) in cs for u, r, c, s in decoys)
+    assert all((u, r) in rel and (u, r, c, s) in cs for u, r, c, s, *_ in decoys)
     cnt = Counter(ev.user for ev in events)
     pad = Counter(u for u, *_ in decoys)
     for u, c in cnt.items():
@@ -168,3 +168,26 @@ def test_laph_run_pads_only_exposed_values_and_drops_decoys():
     d = next(d for d in s.sa.alerts if d.attack)
     inv = s.investigate(d)
     assert not inv.failed_epochs and inv.identity is not None
+
+
+
+def test_padded_entities_land_exactly_on_tiers():
+    """Entity tiers are exact even when resources are padded too; only unpadded entities
+    absorb the resource pass."""
+    events, _ = generate(SynthConfig(epochs=2, events_per_epoch=300, n_users=40, seed=6))
+    cnt = Counter(ev.user for ev in events)
+    heavy = {u for u, _ in cnt.most_common(10)}
+    gamma_of = {("U", u): (4.0 if u in heavy else 1.0) for u in cnt} | {("R", ev.res): 2.0 for ev in events}
+    pad = Counter(d[0] for d in plan_decoys(events, gamma_of, random.Random(1)))
+    for u in heavy:
+        assert cnt[u] + pad[u] == tier(cnt[u], 4.0)
+
+
+def test_epoch_scoped_laph_runs_end_to_end():
+    cfg = Config(paillier_bits=512, agg_features=("count", "bytes"), seed=1, padding="laph", laph_scope="epoch",
+                 laph_gamma=(2.0, 4.0), precompute_workers=0)
+    s = _run(cfg)
+    assert s.ee.stats["decoy"] > 0 and not any(s.ee.dummy.values())
+    d = next(d for d in s.sa.alerts if d.attack)
+    inv = s.investigate(d)
+    assert not inv.failed_epochs and inv.identity is not None and inv.decoys_dropped > 0

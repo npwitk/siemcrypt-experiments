@@ -6,6 +6,9 @@ Systems
         gamma chosen on the development stream so that its decoy ratio matches LAPH's
   LAPH  leakage-adaptive pattern hiding (cfg.padding = "laph", default parameters)
   SD    the earlier dummy-token padding (gamma = 2), for reference
+  LAPH-E / FP-E  the same with epoch scope (cfg.laph_scope = "epoch", D26): tiers on epoch
+        totals; LAPH-E uses gamma = (2, 4) and FP-E is matched to LAPH-E's budget
+Frequency recovery is also reported with a stronger tie-break (more active buckets first).
 Part A  attacks at the matched budget, ten seeds: frequency recovery of U and R tokens,
         overall and per exposure tier (low / medium / high, from the LAPH exposure score of
         the plaintext stream, identical for every system), cross-epoch linkage (overall and
@@ -52,7 +55,13 @@ from e1_accuracy import CLASSES, DEV, TARGET_FPR  # noqa: E402
 from e1_accuracy import TEST as E1_TEST  # noqa: E402
 from e3_leakage import AUX, TEST  # noqa: E402
 from e4_tradeoff import t_rand_2048  # noqa: E402
-from leakage import aux_distribution, decoy_distinguisher, frequency_attack, linkage_attack  # noqa: E402
+from leakage import (  # noqa: E402
+    aux_distribution,
+    decoy_aware_frequency,
+    decoy_distinguisher,
+    frequency_attack,
+    linkage_attack,
+)
 
 from siemcrypt.laph import exposure_by_epoch  # noqa: E402
 
@@ -60,15 +69,20 @@ TIERS = ("low", "medium", "high")
 BUDGET_DEV = replace(TEST, seed=101)
 LAPH_GAMMAS = [(1.25, 1.5), (1.5, 2.0), (2.0, 3.0), (3.0, 4.0)]
 FP_GAMMAS = [1.25, 1.5, 2.0, 3.0]
+LAPH_E_GAMMA = (2.0, 4.0)
+LAPH_E_GAMMAS = [(1.5, 2.0), (2.0, 4.0), (3.0, 8.0)]
+FP_E_GAMMAS = [1.5, 2.0, 3.0, 4.0]
 
 
 def spec(name: str, fp_gamma: float | None = None, laph_gamma=None) -> dict:
     if name == "NP":
         return dict(variant="S")
-    if name == "FP":
-        return dict(variant="FP", gamma=fp_gamma)
+    if name in ("FP", "FP-E"):
+        return dict(variant="FP", gamma=fp_gamma, **({"laph_scope": "epoch"} if name == "FP-E" else {}))
     if name == "LAPH":
         return dict(variant="LAPH", **({"laph_gamma": tuple(laph_gamma)} if laph_gamma else {}))
+    if name == "LAPH-E":
+        return dict(variant="LAPH", laph_scope="epoch", laph_gamma=tuple(laph_gamma or LAPH_E_GAMMA))
     if name == "SD":
         return dict(variant="SD")
     raise KeyError(name)
@@ -85,11 +99,11 @@ def decoy_ratio(sp: dict, sc) -> float:
     return s.ee.stats["decoy"] / max(s.ee.stats["real"], 1)
 
 
-def match_fp_gamma(target: float, workers: int) -> tuple[float, float]:
+def match_fp_gamma(target: float, workers: int, name: str = "FP") -> tuple[float, float]:
     """gamma on a 0.05 grid whose FP decoy ratio on the development stream is closest to target."""
-    grid = [round(1.05 + 0.05 * i, 2) for i in range(40)]
+    grid = [round(1.05 + 0.05 * i, 2) for i in range(60)]
     with ProcessPoolExecutor(workers) as ex:
-        ds = list(ex.map(decoy_ratio, [spec("FP", g) for g in grid], [BUDGET_DEV] * len(grid)))
+        ds = list(ex.map(decoy_ratio, [spec(name, g) for g in grid], [BUDGET_DEV] * len(grid)))
     g, d = min(zip(grid, ds), key=lambda gd: abs(gd[1] - target))
     return g, d
 
@@ -122,6 +136,12 @@ def attacks(name: str, sp: dict, seed: int) -> dict:
         out[f"{dim}_volume_recovery"] = r["volume_recovery"]
         for t, v in stratify(r["per_value"], expo, dim, cfg).items():
             out[f"{dim}_recovery_{t}"] = v
+    da = decoy_aware_frequency(s, aux_distribution(aux, "U"), "U")
+    out["U_recovery_da"] = da["token_recovery"]
+    out["U_recovery_da_high"] = stratify(da["per_value"], expo, "U", cfg)["high"]
+    rb = frequency_attack(s, aux_distribution(aux, "U"), "U", tiebreak="buckets")
+    out["U_recovery_tb"] = rb["token_recovery"]
+    out["U_recovery_tb_high"] = stratify(rb["per_value"], expo, "U", cfg)["high"]
     lk = linkage_attack(s)
     out["linkage"] = lk["linkage_accuracy"]
     for t, v in stratify(lk["per_value"], expo, "U", cfg).items():
@@ -175,7 +195,11 @@ def main() -> None:
     target = decoy_ratio(spec("LAPH"), BUDGET_DEV)
     fp_gamma, fp_delta = match_fp_gamma(target, args.workers)
     print(f"LAPH delta on dev {target:.3f}; FP gamma {fp_gamma} gives {fp_delta:.3f}", flush=True)
-    systems = {"NP": spec("NP"), "FP": spec("FP", fp_gamma), "LAPH": spec("LAPH"), "SD": spec("SD")}
+    target_e = decoy_ratio(spec("LAPH-E"), BUDGET_DEV)
+    fpe_gamma, fpe_delta = match_fp_gamma(target_e, args.workers, "FP-E")
+    print(f"LAPH-E delta on dev {target_e:.3f}; FP-E gamma {fpe_gamma} gives {fpe_delta:.3f}", flush=True)
+    systems = {"NP": spec("NP"), "FP": spec("FP", fp_gamma), "LAPH": spec("LAPH"),
+               "FP-E": spec("FP-E", fpe_gamma), "LAPH-E": spec("LAPH-E"), "SD": spec("SD")}
     with ProcessPoolExecutor(args.workers) as ex:
         jobs = [(n, sp, sd) for n, sp in systems.items() for sd in seeds]
         rowsA = list(ex.map(attacks, *zip(*jobs)))
@@ -185,6 +209,8 @@ def main() -> None:
     settings = [("NP", None, spec("NP"))]
     settings += [("LAPH", g, spec("LAPH", laph_gamma=g)) for g in LAPH_GAMMAS]
     settings += [("FP", g, spec("FP", g)) for g in FP_GAMMAS]
+    settings += [("LAPH-E", g, spec("LAPH-E", laph_gamma=g)) for g in LAPH_E_GAMMAS]
+    settings += [("FP-E", g, spec("FP-E", g)) for g in FP_E_GAMMAS]
     if args.quick:
         settings = settings[:2] + settings[-1:]
     with ProcessPoolExecutor(args.workers) as ex:
@@ -198,10 +224,14 @@ def main() -> None:
 
     md = ["# Journal Experiment 3: LAPH (synthetic data)\n",
           f"Budget matching on the development stream (seed {BUDGET_DEV.seed}): LAPH δ = {target:.3f}, "
-          f"FP gamma = {fp_gamma} (δ = {fp_delta:.3f}). LAPH parameters: w = {config('LAPH').laph_w}, "
+          f"FP gamma = {fp_gamma} (δ = {fp_delta:.3f}); LAPH-E δ = {target_e:.3f} (gamma = {LAPH_E_GAMMA}), "
+          f"FP-E gamma = {fpe_gamma} (δ = {fpe_delta:.3f}). LAPH parameters: w = {config('LAPH').laph_w}, "
           f"theta = {config('LAPH').laph_theta}, gamma = {config('LAPH').laph_gamma}.\n",
           f"## Part A: attacks at the matched budget (seeds {seeds}; mean ± sd)\n"]
-    colsA = [("delta", "δ"), ("U_recovery", "U recovery"), ("R_recovery", "R recovery"),
+    colsA = [("delta", "δ"), ("U_recovery", "U recovery"), ("U_recovery_tb", "U recovery (bucket tie-break)"),
+             ("U_recovery_tb_high", "High-exposure U (bucket tie-break)"),
+             ("U_recovery_da", "U recovery (decoy-aware, 2nd half)"), ("U_recovery_da_high", "High-exposure U (decoy-aware)"),
+             ("R_recovery", "R recovery"),
              ("linkage", "Linkage"), ("decoy_auc", "Decoy AUC"), ("he_enc_per_event", "HE enc / event"),
              ("bytes_per_event", "Bytes / event")]
     md += ["| System | " + " | ".join(c[1] for c in colsA) + " |", "|---|" + "---|" * len(colsA)]
