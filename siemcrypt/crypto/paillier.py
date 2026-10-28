@@ -20,6 +20,9 @@ import gmpy2
 from gmpy2 import mpz
 
 
+ZERO = mpz(1)  # Enc(0; r = 1): identity of homomorphic addition, deterministic empty sum
+
+
 def _random_prime(bits: int) -> mpz:
     while True:
         cand = mpz(secrets.randbits(bits)) | (mpz(1) << (bits - 1)) | 1

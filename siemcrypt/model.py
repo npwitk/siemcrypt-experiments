@@ -105,6 +105,22 @@ class Config:
     laph_hist: int = 6                 # epochs of EE history for L_stab
     laph_scope: str = "bucket"         # real-value padding scope: "bucket" (journal draft) or "epoch" (D26)
     acl: bool = False                  # authenticated EPII + ACL + graph/state lineage
+    acl_level: str = "full"            # journal v2 Exp 5: "full" ACL, "retrieval" (EPII proofs and
+                                       # candidate set only), "none" (accept cloud results)
     fixed_decay: bool = False          # FixedDecay ablation: lambda = lambda0 (no drift / risk terms)
     contract: bool = True              # NoContract ablation when False: explicit per-epoch history
+    # journal v2: AQRS (siemcrypt/aqrs.py) for hunting queries
+    aqrs: str = "adaptive"             # "direct" | "fixed" | "adaptive"
+    aqrs_k: tuple[int, int, int] = (1, 3, 5)                # cohort size of pi_0, pi_1, pi_2
+    aqrs_fixed_k: int = 5              # Fixed-k
+    aqrs_theta: tuple[float, float] = (0.3, 0.6)
+    aqrs_alpha: tuple[float, float, float] = (0.4, 0.3, 0.3)  # (rep, vol, time)
+    aqrs_rmax: int = 4                 # repetitions at which rep saturates
+    aqrs_hist: int = 6                 # epochs of query history for the time term
+    aqrs_select: str = "nearest"       # cover choice: "nearest" (eq:cover-distance), "random", "near-random"
+    aqrs_compat: str = "tier"          # cover pool: same sigma and volume "tier" (journal), or "sigma" (D28)
+    aqrs_dynamic: bool = False         # Dynamic-Cover ablation: redraw covers on every issue
+    aqrs_sticky: bool = False          # D28: profile/cohort fixed at first issue, from history only
+    aqrs_graph: str = "cloud"          # hunting evidence contracted by the "cloud" (journal) or the "ee"
+    aqrs_slot: float = 300.0           # dispatch slot of pi_2
     seed: int | None = None

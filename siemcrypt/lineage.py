@@ -119,12 +119,21 @@ def a_hash(aggs: dict, realness, feats) -> bytes:
     return H(encode(*[int(aggs[f]) for f in feats], int(realness)))
 
 
-def c_a(cq: bytes, feats, aggs: dict, realness, h=H) -> bytes:
-    return h(b"\x13" + cq + H(encode(*feats)) + a_hash(aggs, realness, feats))
+def c_spec(q: dict) -> bytes:
+    """C_spec = H(Enc(J_q, vartheta_q)) (journal v2 eq:computation-specification): the features
+    and every coefficient or parameter of the prescribed computation."""
+    sw = [x for T in sorted(q["source_weights"]) for x in (T, int(q["source_weights"][T]))]
+    return H(encode("spec", *q["feats"], "|", *sw, str(q["policy"].value), repr(q["threshold"])))
 
 
-def acl_record(chi: bytes, cq: bytes, ca: bytes, h=H) -> bytes:
-    return h(b"\x14" + chi + cq + ca)
+def c_a(cq: bytes, feats, aggs: dict, realness, h=H, spec: bytes | None = None) -> bytes:
+    """C_A = H(0x13 || C_Q || C_spec || H(A_q)); without spec, C_spec covers J_q only (v1)."""
+    return h(b"\x13" + cq + (spec if spec is not None else H(encode(*feats))) + a_hash(aggs, realness, feats))
+
+
+def acl_record(chi: bytes, cq: bytes, ca: bytes, h=H, spec: bytes | None = None) -> bytes:
+    """rho_q = H(0x14 || C_chi || C_Q || [C_spec ||] C_A) (journal v2 eq:acl-record)."""
+    return h(b"\x14" + chi + cq + (spec or b"") + ca)
 
 
 def aggregate(q: dict, Q, X_of, src_of, feat_index: dict, he, summer):

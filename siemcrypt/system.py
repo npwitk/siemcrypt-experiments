@@ -40,6 +40,7 @@ class SIEMCrypt:
         self.feat_index = {f: j for j, f in enumerate(cfg.agg_features)}
         self.reports: list[EpochReport] = []
         self.timing = Counter()  # wall-clock seconds per phase group
+        self.hunter = None  # journal v2: callable(epoch) -> list[aqrs.Spec] (hunting workload)
 
     def epoch_of(self, ts: float) -> int:
         return int(ts // self.cfg.epoch_len) + 1
@@ -68,6 +69,10 @@ class SIEMCrypt:
         queries = self.ee.make_queries()
         self.cloud.receive_graph_profiles(e, self.ee.graph_profiles())
         Z = self.cloud.sghef(queries, self.feat_index)
+        if self.hunter is not None:
+            hz = self.ee.hunt(self.hunter(e))
+            if self.cfg.aqrs_graph == "cloud":  # journal: Phase 4 contracts Q_real, hunts included
+                Z += [self.bus.send("ee", "cloud", "evidence_z", z) for z in hz]
         t2 = time.perf_counter()
         updates, drift = self.cloud.phase4(e, Z)
         t3 = time.perf_counter()

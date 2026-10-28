@@ -26,15 +26,16 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 
 from .. import lineage
+from ..aqrs import AQRS, Spec
 from ..bus import Bus
 from ..crypto.cms import CountMin
 from ..crypto.encoding import FixedPoint, encode
 from ..crypto.mmr import MMR
 from ..crypto.mmr import HashCounter
-from ..crypto.paillier import Paillier
+from ..crypto.paillier import ZERO, Paillier
 from ..crypto.primitives import H, aead_encrypt, prf_token
 from ..laph import ExposureTracker, plan_decoys
-from ..model import GRAPH_FEATURES, AttackProfile, Config, Context, Event
+from ..model import GRAPH_FEATURES, AttackProfile, Config, Context, Event, Policy
 from ..protocol import DIMS, IndexEntry, ProtectedRecord, aead_ad, leaf_data
 from .ka import GENESIS, KeyAuthority
 from .td import TokenDirectory
@@ -140,6 +141,11 @@ class EdgeEncryptor:
         self.decoy_rids: set[tuple[int, int]] = set()
         self.horizon_log: list[tuple] = []  # (epoch, user, attack, ell, lambda)
         self.acl_log: list[dict] = []       # per verification: kind, ok, seconds, hashes, he_adds
+        # journal v2: AQRS for hunting queries
+        self.aqrs = AQRS(cfg, random.Random(None if cfg.seed is None else cfg.seed + 7919))
+        self.epoch_tuples = Counter()       # plaintext (u, r, c, s) -> count, current epoch
+        self.hunt_log: list[dict] = []      # evaluation only: the real member of every cohort
+        self._hunt_n = 0
 
     # ================================================================ helpers
     def token(self, dim: str, value: str, epoch: int | None = None,
@@ -164,6 +170,9 @@ class EdgeEncryptor:
         self.keys = self.bus.send("ka", "ee", "epoch_keys", self.ka.epoch_keys(epoch))
         self.mmr = MMR()
         self.epoch_entries, self.epoch_X, self.accepted = {}, {}, {}
+        if self.epoch_tuples:
+            self.aqrs.end_epoch()
+        self.epoch_tuples = Counter()
 
     def ingest(self, ev: Event) -> None:
         if self._epoch_scope:
@@ -177,6 +186,7 @@ class EdgeEncryptor:
             self.close_bucket()
         self.bucket = b
         self.bucket_events.append(ev)
+        self.epoch_tuples[(ev.user, ev.res, ev.cat, ev.src)] += 1
         if self.cfg.screening:
             self.cms_cur.update(H(ev.user.encode()))
             self.cms_cur.update(H(encode(ev.user, ev.res, ev.cat)))
@@ -353,6 +363,7 @@ class EdgeEncryptor:
         self.cloud.receive_checkpoint(cp, sig)
         self.prev_cp_hash = lineage.checkpoint_hash(cp)
         self.checkpoint = cp
+        self.aqrs.start_epoch(self.epoch_tuples)
         return cp, sig
 
     # ================================================================ Phase 3: verify-before-release ACL
@@ -367,29 +378,32 @@ class EdgeEncryptor:
             for c in cts:
                 acc = c if acc is None else self.he.add(acc, c)
                 adds[0] += 1
-            return acc if acc is not None else self.he.encrypt(0)
+            return acc if acc is not None else ZERO  # empty sum: the identity, Enc(0; r = 1)
 
         t0 = time.perf_counter()
         cp = self.checkpoint
-        ok = lineage.verify_postings(cp[2], q["tokens"], req["postings"], req["proof"], hc)
-        Q = None
-        if ok:
+        level = self.cfg.acl_level
+        spec = lineage.c_spec(q)
+        chi = lineage.c_chi(q, cp, hc)
+        aggs, realness = req["aggs"], req["realness"]
+        ok = level == "none" or lineage.verify_postings(cp[2], q["tokens"], req["postings"], req["proof"], hc)
+        Q = {rid[1] for rid in req["Q"]}
+        if ok and level != "none":
             Q = lineage.candidates_from(q["tokens"], req["postings"], cp[4])
             ok = Q == {rid[1] for rid in req["Q"]}
-        if ok:
-            chi = lineage.c_chi(q, cp, hc)
-            cq = lineage.c_q(chi, Q, hc)
+        cq = lineage.c_q(chi, Q, hc)
+        if ok and level != "none":
             ok = cq == req["C_Q"]
-        if ok:
+        if ok and level == "full":
             feat_index = {f: j for j, f in enumerate(self.cfg.agg_features)}
             src = lambda i: self.epoch_entries[i].tokens[3]  # noqa: E731
             aggs, realness = lineage.aggregate(q, Q, self.epoch_X.__getitem__, src, feat_index, self.he, summer)
             ok = (all(int(aggs[f]) == int(req["aggs"][f]) for f in q["feats"])
                   and int(realness) == int(req["realness"]))
-        if ok:
-            ca = lineage.c_a(cq, q["feats"], aggs, realness, hc)
+        ca = lineage.c_a(cq, q["feats"], aggs, realness, hc, spec=spec)
+        if ok and level == "full":
             ok = ca == req["C_A"]
-        rho = lineage.acl_record(chi, cq, ca, hc) if ok else None
+        rho = lineage.acl_record(chi, cq, ca, hc, spec=spec) if ok else None
         dt = time.perf_counter() - t0
         self.acl_log.append(dict(kind="phase3", qid=q["qid"], epoch=self.epoch, ok=int(ok), seconds=dt,
                                  hashes=hc.count, he_adds=adds[0], q=len(req["Q"]),
@@ -413,6 +427,9 @@ class EdgeEncryptor:
     def verify_graph(self, updates: list[tuple], drift: float) -> tuple[list[tuple], float]:
         """Rebuild the attack-relevant contracted neighbourhoods from the accepted Phase 3
         evidence and admit only cloud updates whose C_G matches (journal Phase 4, Step 5)."""
+        if self.cfg.acl_level != "full":  # No-ACL / Retrieval-Only: graph updates taken as given
+            self.mu_prev = None
+            return updates, drift
         hc = HashCounter()
         t0 = time.perf_counter()
         Z = list(self.accepted.values())
@@ -474,6 +491,41 @@ class EdgeEncryptor:
                      policy=c.policy, threshold=c.threshold, source_weights=weights, slot=slot)
             qs.append(self.bus.send("ee", "cloud", "query", q))
         return qs
+
+    def _hunt_query(self, m: Spec) -> dict:
+        self._hunt_n += 1
+        qid = H(encode("hunt", self.epoch, self._hunt_n, self.rng.getrandbits(64))).hex()[:16]  # opaque
+        tok = {m.dim: frozenset({self.token(m.dim, m.value)})}
+        if m.cats is not None:
+            tok["C"] = frozenset(self.token("C", c) for c in m.cats)
+        return dict(qid=qid, attack="hunt", epoch=self.epoch, tokens=tok, feats=("count",),
+                    policy=Policy.VALUE, threshold=0.0, source_weights={}, slot=-1)
+
+    def hunt(self, specs: list[Spec]) -> list[dict]:
+        """AQRS-assisted hunting queries (journal v2 Phase 3): per issue, the cohort is sent in
+        random order; the cloud processes every member alike; only the real member's result is
+        ACL-verified and released, cover results are dropped here. Returns the real evidence."""
+        out = []
+        for s in specs:
+            members, info = self.aqrs.issue(s)
+            qs = [self._hunt_query(m) for m in members]
+            real = qs[0]
+            order = qs[:]
+            self.rng.shuffle(order)
+            t0, he0 = time.perf_counter(), self.cloud.he_adds
+            self.bus.send("ee", "cloud", "cohort", dict(epoch=self.epoch, queries=order, slot=info["slot"]))
+            reqs = self.cloud.cohort(order, {f: j for j, f in enumerate(self.cfg.agg_features)})
+            z = self.acl_release(real, reqs[real["qid"]])
+            if self.cfg.aqrs_graph != "cloud":
+                self.accepted.pop(real["qid"], None)  # contracted inside the EE (D28)
+            dt = time.perf_counter() - t0
+            self.hunt_log.append(dict(info, epoch=self.epoch, real=real["qid"], members=[q["qid"] for q in order],
+                                      seconds=dt, ok=z is not None, he_adds=self.cloud.he_adds - he0,
+                                      retrieved=sum(len(r["Q"]) for r in reqs.values()),
+                                      real_size=len(reqs[real["qid"]]["Q"])))
+            if z is not None:
+                out.append(z)
+        return out
 
     def graph_profiles(self) -> dict[str, frozenset]:
         """(M_a) tokenized for this epoch; only the graph part of P_a goes to the cloud."""

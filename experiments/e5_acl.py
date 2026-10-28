@@ -45,7 +45,7 @@ def _requote(s, q, fi, Q, postings, proof, aggs_over=None, chi_cp=None):
     chi = lineage.c_chi(q, cp)
     cq = lineage.c_q(chi, {r[1] for r in Q})
     return dict(Q=Q, postings=postings, proof=proof, aggs=aggs, realness=realness,
-                C_Q=cq, C_A=lineage.c_a(cq, q["feats"], aggs, realness))
+                C_Q=cq, C_A=lineage.c_a(cq, q["feats"], aggs, realness, spec=lineage.c_spec(q)))
 
 
 def d_omit_posting(s, rng):
@@ -121,7 +121,18 @@ def d_modify_aggregate(s, rng):
         f = q["feats"][0]
         r["aggs"] = {**r["aggs"], f: s.cloud.he.add(r["aggs"][f], s.cloud.he.encrypt(1))}
         cq = r["C_Q"]
-        r["C_A"] = lineage.c_a(cq, q["feats"], r["aggs"], r["realness"])
+        r["C_A"] = lineage.c_a(cq, q["feats"], r["aggs"], r["realness"], spec=lineage.c_spec(q))
+        return r
+    return "acl_request", req
+
+
+def d_modify_spec(s, rng):
+    """Specification manipulation (journal v2): aggregate another feature (count <-> bytes)
+    in place of the prescribed one, and commit consistently to the prescribed spec."""
+    def req(q, fi):
+        Q, P, pf = s.cloud.auth_candidates(q["epoch"], q["tokens"])
+        swapped = {f: (len(fi) - 1 - j) for f, j in fi.items()}
+        r = _requote(s, q, swapped, Q, P, pf)
         return r
     return "acl_request", req
 
@@ -203,6 +214,7 @@ DEVIATIONS = {
     "Add invalid candidate": ("Candidate recomputation", d_add_candidate),
     "Modify HE aggregate": ("ACL recomputation", d_modify_aggregate),
     "Aggregate wrong candidate set": ("ACL recomputation", d_wrong_set),
+    "Swap prescribed HE feature": ("ACL recomputation (C_spec)", d_modify_spec),
     "Modify contracted relation": ("Graph-lineage verification", d_modify_relation),
     "Omit contributing graph evidence": ("Graph-lineage verification", d_omit_graph_evidence),
     "Modify graph evidence/features": ("C_G/recomputation", d_modify_features),
@@ -211,10 +223,13 @@ DEVIATIONS = {
 }
 
 
-def trial(name: str, seed: int) -> dict:
+LEVELS = {"ACL": "full", "Retrieval-Only": "retrieval", "No-ACL": "none"}
+
+
+def trial(name: str, seed: int, level: str = "ACL") -> dict:
     events, _ = generate(replace(DATA, seed=seed))
     last = max(int(ev.ts // 3600) + 1 for ev in events)
-    s = run(config("J", seed=seed), [ev for ev in events if int(ev.ts // 3600) + 1 < last])
+    s = run(config("J", seed=seed, acl_level=LEVELS[level]), [ev for ev in events if int(ev.ts // 3600) + 1 < last])
     rng = random.Random(seed)
     attr, fn = DEVIATIONS[name][1](s, rng)
     setattr(s.cloud, attr, fn)
@@ -225,10 +240,10 @@ def trial(name: str, seed: int) -> dict:
     delta = {k: st[k] - before.get(k, 0) for k in ("acl_reject", "graph_reject", "graph_omitted", "drift_reject")}
     detected = any(delta.values())
     released = len(s.ka.audit) - n_audit
-    ph4 = next(r for r in reversed(s.ee.acl_log) if r["kind"] == "phase4")
-    return dict(deviation=name, stage=DEVIATIONS[name][0], seed=seed, detected=int(detected), **delta,
+    ph4 = next((r for r in reversed(s.ee.acl_log) if r["kind"] == "phase4"), None)  # none below full ACL
+    return dict(deviation=name, stage=DEVIATIONS[name][0], level=level, seed=seed, detected=int(detected), **delta,
                 releases=released, contexts=len(s.ee.contexts),
-                inconsistent_admitted=0 if ph4["ok"] or detected else 1)
+                inconsistent_admitted=None if ph4 is None else (0 if ph4["ok"] or detected else 1))
 
 
 def honest(seed: int) -> dict:
@@ -247,7 +262,7 @@ def main() -> None:
     seeds = list(range(1, args.trials + 1))
     t0 = time.time()
     with ProcessPoolExecutor(args.workers) as ex:
-        jobs = [(n, sd) for n in DEVIATIONS for sd in seeds]
+        jobs = [(n, sd, lv) for lv in LEVELS for n in DEVIATIONS for sd in seeds]
         rows = list(ex.map(trial, *zip(*jobs)))
         clean = list(ex.map(honest, seeds))
     write_csv("e5_acl_deviation.csv", rows)
@@ -257,10 +272,18 @@ def main() -> None:
           "| Injected deviation | Detection stage | Detected | Contexts rejected | Updates rejected / omitted | Released |",
           "|---|---|---|---|---|---|"]
     for n, (stage, _) in DEVIATIONS.items():
-        sel = [r for r in rows if r["deviation"] == n]
+        sel = [r for r in rows if r["deviation"] == n and r["level"] == "ACL"]
         md.append(f"| {n} | {stage} | {sum(r['detected'] for r in sel)}/{len(sel)} | "
                   f"{sum(r['acl_reject'] for r in sel)} | {sum(r['graph_reject'] for r in sel)} / "
                   f"{sum(r['graph_omitted'] for r in sel)} | {sum(r['releases'] for r in sel)} |")
+    md += ["", "Detection by verification level (journal v2: No-ACL / Retrieval-Only / ACL):", "",
+           "| Injected deviation | " + " | ".join(LEVELS) + " |", "|---" * (len(LEVELS) + 1) + "|"]
+    for n in DEVIATIONS:
+        cells = []
+        for lv in LEVELS:
+            sel = [r for r in rows if r["deviation"] == n and r["level"] == lv]
+            cells.append(f"{sum(r['detected'] for r in sel)}/{len(sel)}")
+        md.append(f"| {n} | " + " | ".join(cells) + " |")
     md.append(f"\nHonest runs: {sum(r['false_rejects'] for r in clean)} false rejections over "
               f"{sum(r['checks'] for r in clean)} verifications ({len(clean)} runs).")
     md.append(f"\nTotal time {time.time() - t0:.0f}s")

@@ -19,7 +19,7 @@ from .. import lineage
 from ..bus import Bus
 from ..crypto.mdict import MerkleDict
 from ..crypto.mmr import MMR
-from ..crypto.paillier import Paillier
+from ..crypto.paillier import ZERO, Paillier
 from ..protocol import DIMS, IndexEntry, ProtectedRecord, leaf_data
 from .ka import KeyAuthority
 
@@ -98,7 +98,7 @@ class CloudSIEM:
         for c in cts:
             acc = c if acc is None else self.he.add(acc, c)
             self.he_adds += 1
-        return acc if acc is not None else self.he.encrypt(0)
+        return acc if acc is not None else ZERO  # empty sum: the identity, Enc(0; r = 1)
 
     def acl_request(self, q: dict, feat_index: dict[str, int]) -> dict:
         """Req_q (journal eq:release-request) with the commitments C_Q and C_A."""
@@ -109,7 +109,7 @@ class CloudSIEM:
         chi = lineage.c_chi(q, cp)
         cq = lineage.c_q(chi, {r[1] for r in Q})
         return dict(Q=Q, postings=postings, proof=proof, aggs=aggs, realness=realness,
-                    C_Q=cq, C_A=lineage.c_a(cq, q["feats"], aggs, realness))
+                    C_Q=cq, C_A=lineage.c_a(cq, q["feats"], aggs, realness, spec=lineage.c_spec(q)))
 
     def aggregate(self, q: dict, Q: set, feat_index: dict[str, int]):
         def smul_count(c, w):
@@ -144,6 +144,14 @@ class CloudSIEM:
                 continue
             aggs, realness = self.aggregate(q, Q, feat_index)
             self._release(out, q, e, Q, aggs, realness)
+        return out
+
+    def cohort(self, queries: list[dict], feat_index: dict[str, int]) -> dict[str, dict]:
+        """AQRS cohort (journal v2 Phase 3, Steps 3-4): the same authenticated retrieval and
+        HE aggregation for every member; the cloud cannot tell which member is real."""
+        out = {q["qid"]: self.acl_request(q, feat_index) for q in queries}
+        for q in queries:
+            self.bus.send("cloud", "ee", "cohort_req", out[q["qid"]])
         return out
 
     def _release(self, out: list, q: dict, e: int, Q: set, aggs: dict, realness) -> None:
