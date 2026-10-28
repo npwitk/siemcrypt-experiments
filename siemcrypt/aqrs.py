@@ -126,11 +126,18 @@ class AQRS:
             return []
         cand = [v for v in self._candidates(s) if v not in exclude]
         vol = self.volumes(s.sigma)
-        if self.cfg.aqrs_select in ("nearest", "near-random") and not self.cfg.aqrs_dynamic:
+        if self.cfg.aqrs_select in ("nearest", "near-random", "equal-first") and not self.cfg.aqrs_dynamic:
             self.rng.shuffle(cand)  # random tie-break among equal distances
             cand.sort(key=lambda v: abs(math.log1p(vol[v]) - math.log1p(vol[s.value])))
             if self.cfg.aqrs_select == "nearest":
                 pick = cand[:n]
+            elif self.cfg.aqrs_select == "equal-first":
+                # D28 with padding: values padded to the same cloud-visible volume first (they are
+                # indistinguishable by volume), the rest near-random as below
+                same = [v for v in cand if vol[v] == vol[s.value]]
+                pick = self.rng.sample(same, min(n, len(same)))
+                rest = [v for v in cand if v not in set(pick)][:2 * (n - len(pick))]
+                pick += self.rng.sample(rest, min(n - len(pick), len(rest)))
             else:  # D28: n of the 2n nearest at random, so the real query is not the centre
                 pick = self.rng.sample(cand[:2 * n], min(n, len(cand[:2 * n])))
         else:

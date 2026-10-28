@@ -48,6 +48,7 @@ from siemcrypt.aqrs import Spec  # noqa: E402
 from siemcrypt.data.synth import default_profiles_and_contexts  # noqa: E402
 from siemcrypt.system import SIEMCrypt  # noqa: E402
 
+PAD = dict(padding="laph", laph_scope="epoch", laph_gamma=(2.0, 4.0))  # LAPH-E (D26)
 SYSTEMS = {
     "Direct": dict(aqrs="direct"),
     "Fixed-3": dict(aqrs="fixed", aqrs_fixed_k=3),
@@ -60,6 +61,18 @@ SYSTEMS = {
                       aqrs_graph="ee"),
     "Fixed-5-D28w": dict(aqrs="fixed", aqrs_fixed_k=5, aqrs_select="near-random", aqrs_compat="sigma",
                          aqrs_sticky=True, aqrs_graph="ee"),
+    # combined: journal v2 + D26 volume padding (+P)
+    "Direct+P": dict(aqrs="direct", **PAD),
+    "AQRS+P": dict(aqrs="adaptive", **PAD),
+    "AQRS-D28+P": dict(aqrs="adaptive", aqrs_select="near-random", aqrs_sticky=True, aqrs_graph="ee", **PAD),
+    "AQRS-D28w+P": dict(aqrs="adaptive", aqrs_select="near-random", aqrs_compat="sigma", aqrs_sticky=True,
+                        aqrs_graph="ee", **PAD),
+    "AQRS-D28e+P": dict(aqrs="adaptive", aqrs_select="equal-first", aqrs_compat="sigma", aqrs_sticky=True,
+                        aqrs_graph="ee", **PAD),
+    "Fixed-5-D28e+P": dict(aqrs="fixed", aqrs_fixed_k=5, aqrs_select="equal-first", aqrs_compat="sigma",
+                           aqrs_sticky=True, aqrs_graph="ee", **PAD),
+    "Fixed-5-D28w+P": dict(aqrs="fixed", aqrs_fixed_k=5, aqrs_select="near-random", aqrs_compat="sigma",
+                           aqrs_sticky=True, aqrs_graph="ee", **PAD),
 }
 CATS = [(None, 0.5), (frozenset({"auth_fail"}), 0.2), (frozenset({"data_transfer"}), 0.15),
         (frozenset({"conn_denied"}), 0.15)]
@@ -159,7 +172,8 @@ def observe(s: SIEMCrypt) -> list[dict]:
             feats.append([k, ln[i], rank.index(i) / max(1, k - 1), n[i] / (med + 1), cent[i] / max(1e-9, max(cent)),
                           int(i in S_c), int(n[i] == max(n)), alone[keys[i]], seen[keys[i]],
                           seen[keys[i]] / max(seen[x] for x in keys)])
-        rows.append(dict(epoch=e, cls=log["cls"], pi=log["pi"], k=log["k"], k_eff=k, n_issue=log["n_issue"],
+        rows.append(dict(epoch=e, dim=log["spec"].dim, filtered=int(log["spec"].cats is not None),
+                         cls=log["cls"], pi=log["pi"], k=log["k"], k_eff=k, n_issue=log["n_issue"],
                          real=real, feats=feats, S_comb=sorted(S_comb),
                          uniform=1.0 / k, central=p_of(S_c), intersect=p_of(S_i), downstream=p_of(S_d),
                          members=k, retrieved=log["retrieved"], real_size=log["real_size"],
@@ -182,7 +196,9 @@ def run_one(args) -> list[dict]:
     for r in rows:
         r.update(system=name, seed=seed, bytes_per_issue=hunt_bytes / max(1, len(rows)),
                  run_seconds=time.perf_counter() - t0, acl_reject=s.ee.stats["acl_reject"],
-                 graph_reject=s.ee.stats["graph_reject"] + s.ee.stats["graph_omitted"])
+                 graph_reject=s.ee.stats["graph_reject"] + s.ee.stats["graph_omitted"],
+                 decoy_ratio=s.ee.stats["decoy"] / max(1, s.ee.stats["real"]),
+                 he_enc_per_event=s.ee.stats["he_enc"] / max(1, s.ee.stats["real"]))
     return rows
 
 
@@ -242,6 +258,8 @@ def summarize(rows: list[dict], n_epochs: int) -> list[dict]:
             row["ms"] = 1000 * statistics.mean(r["seconds"] for r in rs)
             row["bytes"] = statistics.mean(r["bytes_per_issue"] for r in rs)
             row["false_reject"] = sum(1 - r["ok"] for r in rs)
+            row["delta"] = statistics.mean(r["decoy_ratio"] for r in rs)
+            row["enc_ev"] = statistics.mean(r["he_enc_per_event"] for r in rs)
             out.append(row)
     return out
 
@@ -254,11 +272,11 @@ def write_md(summary: list[dict], path: Path, meta: str) -> None:
              "Identification rate = probability the cloud picks the real query (lower is better; "
              "Direct = 1). Test epochs only (second half).", "",
              "| System | class | issues | uniform | central | intersect | downstream | learned | combined | best | "
-             "k_eff | short | retrieved x | HE adds | ms | bytes |",
-             "|---" * 16 + "|"]
+             "k_eff | short | retrieved x | HE adds | ms | bytes | delta | enc/event |",
+             "|---" * 18 + "|"]
     for r in summary:
         lines.append("| " + " | ".join(f(r[k]) for k in ("system", "cls", "issues", *ATTACKS, "best", "k_eff", "short",
-                                                           "retrieved_x", "he_adds", "ms", "bytes")) + " |")
+                                                           "retrieved_x", "he_adds", "ms", "bytes", "delta", "enc_ev")) + " |")
     path.write_text("\n".join(lines) + "\n")
 
 

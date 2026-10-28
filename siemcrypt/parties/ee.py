@@ -202,6 +202,7 @@ class EdgeEncryptor:
     def _pending_decoy(self, u, r, c, s, n: int) -> _Pending:
         """A decoy over real values; n = payload length of the real event it was copied from."""
         toks = tuple(self.token(d, v) for d, v in zip(DIMS, (u, r, c, s)))
+        self.epoch_tuples[(u, r, c, s)] += 1  # AQRS plans on the cloud-visible volumes
         return _Pending(toks, {}, self.rng.randbytes(n) if hasattr(self.rng, "randbytes") else bytes(n), 1, None)
 
     def _real_value_decoys(self, events: list[Event], real_lengths: list[int]) -> list[_Pending]:
