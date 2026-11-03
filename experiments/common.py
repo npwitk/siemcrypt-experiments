@@ -55,6 +55,13 @@ VARIANTS = {
     "NoHist": {"history": False},
     "FixedDecay": {"fixed_decay": True},
     "NoContract": {"contract": False},
+    # journal v2
+    "LAPH-E": {"padding": "laph", "laph_scope": "epoch", "laph_gamma": (2.0, 4.0)},   # D26
+    "NoGraph": {"no_graph": True},
+    "FixedWindow": {"hist_window": 3},
+    "NoProfileBind": {"profile_bind": False},
+    "J2": {"acl": True, "aqrs": "fixed", "aqrs_fixed_k": 5, "aqrs_select": "partition", "aqrs_sticky": True,
+           "aqrs_graph": "ee", "padding": "cohort", "cpad_cats": False},     # D29 default of the journal
 }
 
 

@@ -224,12 +224,42 @@ DEVIATIONS = {
 
 
 LEVELS = {"ACL": "full", "Retrieval-Only": "retrieval", "No-ACL": "none"}
+VARIANT = "J"
+RATES = [0.01, 0.05, 0.1, 0.25, 0.5]
+
+
+def rate_trial(name: str, p: float, seed: int) -> dict:
+    """Journal v2 rate sweep: over the whole run the cloud deviates on each Phase 3 request with
+    probability p; every deviating request is counted, and the EE's rejections with it."""
+    events, _ = generate(replace(DATA, seed=seed))
+    from siemcrypt.data.synth import default_profiles_and_contexts
+    from siemcrypt.system import SIEMCrypt
+    profiles, contexts = default_profiles_and_contexts()
+    s = SIEMCrypt(config(VARIANT, seed=seed), profiles, contexts)
+    rng = random.Random(seed * 7 + int(p * 1000))
+    attr, fn = DEVIATIONS[name][1](s, rng)
+    orig = getattr(s.cloud, attr)
+    n = {"calls": 0, "dev": 0, "changed": 0}
+
+    def wrapped(q, fi):
+        n["calls"] += 1
+        if rng.random() >= p:
+            return orig(q, fi)
+        n["dev"] += 1
+        bad, good = fn(q, fi), orig(q, fi)
+        n["changed"] += int(bad["C_A"] != good["C_A"] or bad["Q"] != good["Q"] or bad["postings"] != good["postings"])
+        return bad
+
+    setattr(s.cloud, attr, wrapped)
+    s.run(events)
+    return dict(deviation=name, rate=p, seed=seed, requests=n["calls"], deviated=n["dev"], effective=n["changed"],
+                rejected=s.ee.stats["acl_reject"])
 
 
 def trial(name: str, seed: int, level: str = "ACL") -> dict:
     events, _ = generate(replace(DATA, seed=seed))
     last = max(int(ev.ts // 3600) + 1 for ev in events)
-    s = run(config("J", seed=seed, acl_level=LEVELS[level]), [ev for ev in events if int(ev.ts // 3600) + 1 < last])
+    s = run(config(VARIANT, seed=seed, acl_level=LEVELS[level]), [ev for ev in events if int(ev.ts // 3600) + 1 < last])
     rng = random.Random(seed)
     attr, fn = DEVIATIONS[name][1](s, rng)
     setattr(s.cloud, attr, fn)
@@ -248,7 +278,7 @@ def trial(name: str, seed: int, level: str = "ACL") -> dict:
 
 def honest(seed: int) -> dict:
     events, _ = generate(replace(DATA, seed=seed))
-    s = run(config("J", seed=seed), events)
+    s = run(config(VARIANT, seed=seed), events)
     st = s.ee.stats
     return dict(seed=seed, false_rejects=st["acl_reject"] + st["graph_reject"] + st["graph_omitted"] + st["drift_reject"],
                 checks=len(s.ee.acl_log))
@@ -258,13 +288,22 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--trials", type=int, default=5)
     ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--variant", default="J", choices=["J", "J2"])
     args = ap.parse_args()
+    global VARIANT
+    VARIANT = args.variant
     seeds = list(range(1, args.trials + 1))
     t0 = time.time()
     with ProcessPoolExecutor(args.workers) as ex:
         jobs = [(n, sd, lv) for lv in LEVELS for n in DEVIATIONS for sd in seeds]
         rows = list(ex.map(trial, *zip(*jobs)))
         clean = list(ex.map(honest, seeds))
+        rate_devs = [n for n, (_, f) in DEVIATIONS.items() if f.__name__ in (
+            "d_omit_posting", "d_substitute_posting", "d_omit_candidate", "d_add_candidate",
+            "d_modify_aggregate", "d_wrong_set", "d_modify_spec")]
+        rjobs = [(n, p, sd) for n in rate_devs for p in RATES for sd in seeds]
+        rrows = list(ex.map(rate_trial, *zip(*rjobs)))
+    write_csv("e5_acl_rate.csv", rrows)
     write_csv("e5_acl_deviation.csv", rows)
     md = ["# Journal Experiment 5: deviations against ACL (synthetic data)\n",
           f"Trials {seeds}; the deviation happens in the last epoch. Released = KA releases in that epoch "
@@ -283,6 +322,15 @@ def main() -> None:
         for lv in LEVELS:
             sel = [r for r in rows if r["deviation"] == n and r["level"] == lv]
             cells.append(f"{sum(r['detected'] for r in sel)}/{len(sel)}")
+        md.append(f"| {n} | " + " | ".join(cells) + " |")
+    md += ["", f"Rate sweep ({VARIANT}): the cloud deviates on each Phase 3 request with probability p over "
+           f"the whole run; rejected / effective deviations (effective = the answer actually differs).", "",
+           "| Injected deviation | " + " | ".join(f"p={p}" for p in RATES) + " |", "|---" * (len(RATES) + 1) + "|"]
+    for n in rate_devs:
+        cells = []
+        for p in RATES:
+            sel = [r for r in rrows if r["deviation"] == n and r["rate"] == p]
+            cells.append(f"{sum(r['rejected'] for r in sel)}/{sum(r['effective'] for r in sel)}")
         md.append(f"| {n} | " + " | ".join(cells) + " |")
     md.append(f"\nHonest runs: {sum(r['false_rejects'] for r in clean)} false rejections over "
               f"{sum(r['checks'] for r in clean)} verifications ({len(clean)} runs).")

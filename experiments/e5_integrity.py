@@ -301,7 +301,7 @@ def main() -> None:
     ap.add_argument("--trials", type=int, default=5)
     ap.add_argument("--bits", type=int, default=2048, help="key size for Part C")
     ap.add_argument("--workers", type=int, default=8)
-    ap.add_argument("--variant", default="S", choices=["S", "J"])
+    ap.add_argument("--variant", default="S", choices=["S", "J", "J2"])
     args = ap.parse_args()
     trials = 2 if args.quick else args.trials
     t0 = time.time()

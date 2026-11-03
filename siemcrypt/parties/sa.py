@@ -40,7 +40,10 @@ class Investigation:
     plaintexts: list[bytes] = field(default_factory=list)
     identity: str | None = None
     index_failed_epochs: list[int] = field(default_factory=list)
-    timing: dict = field(default_factory=dict)  # seconds: epii, checkpoint, mmr
+    timing: dict = field(default_factory=dict)  # seconds: epii, checkpoint, mmr, c_inv
+    refs: set = field(default_factory=set)
+    evidence: dict = field(default_factory=dict)
+    c_inv: bytes | None = None
 
 
 class SecurityAnalyst:
@@ -54,16 +57,21 @@ class SecurityAnalyst:
     def receive_alert(self, d: Descriptor) -> None:
         self.alerts.append(d)
 
-    def investigate(self, d: Descriptor) -> Investigation:
+    def investigate(self, d: Descriptor, span: int | None = None, full_history: bool = False) -> Investigation:
+        """span: explicit window length (journal v2 Exp 6 sweep); full_history: Full-History
+        baseline, every epoch since the first and every record of the entity (no profile scope)."""
         e = d.epoch
-        span = d.horizon if d.horizon is not None else self.default_lookback
+        if span is None:
+            span = d.horizon if d.horizon is not None else self.default_lookback
+        if full_history:
+            span = e
         window = range(max(1, e - span + 1), e + 1)
         inv = Investigation(d, window)
 
         # Step 2: the EE resolves the current token internally and derives historical queries
         user = self.ee.resolve_current(e, d.token)
-        queries = self.ee.investigation_queries(user, d.attack, window)
-        refs = set(d.provenance)
+        queries = self.ee.investigation_queries(user, None if full_history else d.attack, window)
+        refs = {rid for rid in d.provenance if rid[0] in window}  # lineage refs inside the window
         answers = {}
         for tau, tok in queries.items():
             if self.acl:
@@ -118,6 +126,12 @@ class SecurityAnalyst:
                 inv.failed_epochs.append(tau)
         inv.timing["mmr"] = time.perf_counter() - t0
         inv.verified_records = len(verified)
+        inv.refs, inv.evidence = refs, ev
+        if self.acl:
+            t0 = time.perf_counter()
+            inv.c_inv = lineage.c_inv(d.state_commitment, window, None if full_history else d.attack, refs,
+                                      {tau: cp[0][1] for tau, cp in cps.items()}, verified)
+            inv.timing["c_inv"] = time.perf_counter() - t0
 
         # Step 5: verify-before-decrypt
         identity_token = None

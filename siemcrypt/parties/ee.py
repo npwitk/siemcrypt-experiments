@@ -90,6 +90,8 @@ class _PairState:
     prov: set = field(default_factory=set)
     C_H: bytes = GENESIS
     zs: list = field(default_factory=list)  # NoContract: explicit (epoch, z) history
+    win: list = field(default_factory=list)  # Fixed-Window: (epoch, z) of the last W epochs
+    born: int = 1                           # profile version the lineage started under
 
 
 class EdgeEncryptor:
@@ -128,7 +130,8 @@ class EdgeEncryptor:
         self.bucket: int | None = None
         self.bucket_events: list[Event] = []
         # Phase 5 state, keyed by (user, attack)
-        self.state: dict[tuple[str, str], _PairState] = {}
+        self.state: dict[tuple, _PairState] = {}  # (u, a, pid_a); (u, a) under No-Profile-Bind
+        self.alert_log: list[dict] = []
         # screening state
         self.cms_cur = CountMin.for_error(cfg.cms_eps, cfg.cms_delta)
         self.cms_base = self.cms_cur.like()
@@ -581,10 +584,40 @@ class EdgeEncryptor:
             n += len(st.h) + 1 + len(st.prov) + sum(len(z) + 2 if z is not None else 2 for _, z, _ in st.zs)
         return n
 
+    def _key(self, u: str, a: str) -> tuple:
+        if self.cfg.profile_bind:
+            return (u, a, lineage.pid(self.profiles[a]))
+        return (u, a)
+
+    def _new_state(self, a: str, dim: int) -> _PairState:
+        p = self.profiles[a]
+        g = lineage.genesis(lineage.pid(p)) if self.cfg.profile_bind else GENESIS
+        return _PairState([0.0] * dim, C_H=g, born=p.version)
+
+    def _window_h(self, st: _PairState, dim: int) -> list[float]:
+        """Fixed-Window: h = (1/W) sum of z over the last W epochs (no decay, hard cut-off)."""
+        W = self.cfg.hist_window
+        st.win = [(ep, z) for ep, z in st.win if ep > self.epoch - W]
+        h = [0.0] * dim
+        for _, z in st.win:
+            h = [hv + zv / W for hv, zv in zip(h, z)]
+        return h
+
+    def update_profile(self, p: AttackProfile) -> None:
+        """Deploy a new version of P_a. With pid binding the next epochs start new lineages
+        (fresh genesis); the retired lineages are dropped. No-Profile-Bind keeps them."""
+        self.profiles[p.name] = p
+        if self.cfg.profile_bind:
+            cur = lineage.pid(p)
+            for key in [k for k in self.state if k[1] == p.name and k[2] != cur]:
+                del self.state[key]
+                self.stats["lineage_retired"] += 1
+
     def phase5(self, updates: list[tuple], drift: float) -> list[Descriptor]:
         if self.cfg.acl:
             updates, drift = self.verify_graph(updates, drift)
         e, alerts, seen = self.epoch, [], set()
+        n = len(GRAPH_FEATURES)
         for upd in updates:
             T_u, a, z, refs = upd[:4]
             if T_u in self.dummy[e]:
@@ -593,42 +626,59 @@ class EdgeEncryptor:
             u = self.user_of[e].get(T_u)
             if u is None:
                 continue
+            if self.cfg.no_graph:
+                z = [0.0] * n + list(z[n:])
             p = self.profiles[a]
-            st = self.state.get((u, a)) or _PairState([0.0] * len(z))
+            key = self._key(u, a)
+            st = self.state.get(key) or self._new_state(a, len(z))
             lam = self._lambda(p, drift, st.R)
             rho = math.exp(-lam)
             horizon = math.ceil(math.log(self.cfg.eps_h) / math.log(rho))
-            n = len(GRAPH_FEATURES)
+            if self.cfg.hist_window:
+                horizon = self.cfg.hist_window
+                st.h = self._window_h(st, len(z))
             if not self.cfg.contract:
                 st.h = self._explicit_h(st)
             S = self._dot(p.theta_g, z[:n]) + self._dot(p.theta_y, z[n:]) + p.theta_h * self._hist_score(p, st.h)
             h_prev = tuple(st.h)
             st.R = _sigmoid(p.kappa * (S - p.Theta))
-            st.h = [rho * hv + (1 - rho) * zv for hv, zv in zip(st.h, z)]
+            if self.cfg.hist_window:
+                st.win.append((e, tuple(z)))
+                st.h = self._window_h(st, len(z))
+            else:
+                st.h = [rho * hv + (1 - rho) * zv for hv, zv in zip(st.h, z)]
             if not self.cfg.contract:
                 st.zs.append((e, tuple(z), rho))
             st.prov = self._prune(st.prov | set(refs), horizon)
             if self.cfg.acl:
                 st.C_H = lineage.c_h(st.C_H, upd[4], st.h, st.R, st.prov)
-            self.state[(u, a)] = st
-            seen.add((u, a))
+            self.state[key] = st
+            seen.add(key)
             self.score_log.append((e, u, a, S, tuple(z), h_prev))
-            self.horizon_log.append((e, u, a, horizon, lam))
+            self.horizon_log.append((e, u, a, horizon, lam, len(st.prov), rho))
             if S >= p.Theta:
                 d = Descriptor(e, T_u, a, S, horizon, frozenset(st.prov), st.C_H if self.cfg.acl else None)
                 self.bus.send("ee", "sa", "alert", d)
                 self.sa.receive_alert(d)
                 alerts.append(d)
+                self.alert_log.append(dict(epoch=e, user=u, attack=a, version=p.version, born=st.born,
+                                           prov_epochs=sorted({r[0] for r in st.prov})))
         for key in list(self.state):
             if key in seen:
                 continue
             st, p = self.state[key], self.profiles[key[1]]
             rho = math.exp(-self._lambda(p, drift, st.R))
-            st.h = [rho * hv for hv in st.h]
+            if self.cfg.hist_window:
+                st.h = self._window_h(st, len(st.h))
+                st.prov = self._prune(st.prov, self.cfg.hist_window)
+            else:
+                st.h = [rho * hv for hv in st.h]
+                st.prov = self._prune(st.prov, math.ceil(math.log(self.cfg.eps_h) / math.log(rho)))
             if not self.cfg.contract:
                 st.zs.append((e, None, rho))
-            st.prov = self._prune(st.prov, math.ceil(math.log(self.cfg.eps_h) / math.log(rho)))
             if self.cfg.acl:
+                # idle decay: C_empty commits to the inactive epoch (eq:inactive-commitment)
+                self.stats["idle_commit"] += 1
                 st.C_H = lineage.c_h(st.C_H, lineage.c_inactive(e, key[1]), st.h, st.R, st.prov)
             if self.cfg.contract and math.sqrt(sum(v * v for v in st.h)) < self.cfg.eps_h and not st.prov:
                 del self.state[key]  # NoContract keeps its explicit history

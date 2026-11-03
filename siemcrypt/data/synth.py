@@ -42,7 +42,9 @@ class SynthConfig:
     n_low_and_slow: int = 2
     n_exfil: int = 1
     lns_per_epoch: int = 4
-    lns_epochs: int = 5
+    lns_epochs: int = 5                # active epochs of a low-and-slow attacker
+    lns_burst: int = 1                 # journal v2 Exp 4: active epochs come in bursts of lns_burst
+    lns_gap: int = 0                   # separated by lns_gap dormant epochs (default: contiguous)
     n_coordinated: int = 0
     coord_per_source: int = 3
     drift: float = 0.0  # environmental drift: per-epoch volume +-drift and drift*n_users popularity swaps
@@ -120,9 +122,11 @@ def generate(cfg: SynthConfig) -> tuple[list[Event], list[GroundTruth]]:
 
     for k in range(cfg.n_low_and_slow):
         u = next(it)
-        start = rng.randrange(0, max(1, cfg.epochs - cfg.lns_epochs))
+        b = max(1, cfg.lns_burst)
+        active = [i + (i // b) * cfg.lns_gap for i in range(cfg.lns_epochs)]  # offsets from start
+        start = rng.randrange(0, max(1, cfg.epochs - active[-1] - 1)) if active else 0
         gt = GroundTruth(f"lns{k}", "low_and_slow", "cred_access", u, [])
-        for e in range(start, min(cfg.epochs, start + cfg.lns_epochs)):
+        for e in (start + o for o in active if start + o < cfg.epochs):
             gt.epochs.append(e + 1)
             for _ in range(cfg.lns_per_epoch):
                 ts = e * cfg.epoch_len + rng.random() * cfg.epoch_len

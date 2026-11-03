@@ -235,3 +235,25 @@ def c_h(prev: bytes, c_in: bytes, hvec, R: float, prov, h=H) -> bytes:
 def c_inactive(epoch: int, attack: str) -> bytes:
     return H(encode("inactive", epoch, attack))
 
+
+
+def pid(p, h=H) -> bytes:
+    """pid_a = H(0x40 || name || version || M_a || F_a || J_a^hist || omega_a): the versioned
+    attack profile identifier bound into the genesis state and every C_H (journal v2)."""
+    return h(b"\x40" + encode(p.name, p.version, ",".join(sorted(p.categories)),
+                               repr((p.theta_g, p.theta_y, p.theta_h, p.theta_r, p.Theta, p.kappa)),
+                               repr((p.lambda0, p.lambda_min, p.lambda_max, p.alpha, p.beta))))
+
+
+def genesis(pid_a: bytes, h=H) -> bytes:
+    """C_H^(0) of a (u, a) lineage under profile version pid_a."""
+    return h(b"\x41" + pid_a)
+
+
+def c_inv(c_h: bytes | None, window: range, attack: str | None, refs, roots: dict, verified, h=H) -> bytes:
+    """C_Inv = H(0x50 || C_H || window || a || H(EncSet(Ref)) || H(roots) || H(EncSet(verified))):
+    the SA's commitment to what an investigation covered (journal v2 Phase 6), so an auditor can
+    later check the window, the reference set and the checkpoints it was verified against."""
+    enc = lambda xs: h(b"".join(sorted(encode(*x) for x in xs)))  # noqa: E731
+    return h(b"\x50" + (c_h or b"") + encode(window.start, window.stop, attack or "") + enc(refs)
+             + h(b"".join(encode(t, r) for t, r in sorted(roots.items()))) + enc(verified))

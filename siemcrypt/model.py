@@ -68,6 +68,7 @@ class AttackProfile:
     theta_r: tuple[float, ...] | None = None  # r(h) = theta_r . h; None: reuse (theta_g, theta_y)
     Theta: float = 1.0
     kappa: float = 1.0
+    version: int = 1                   # journal v2: versioned profile; pid_a binds it (lineage.pid)
 
 
 GRAPH_FEATURES = ("weighted_degree", "resource_diversity", "source_diversity", "relations", "temporal_dispersion")
@@ -109,6 +110,11 @@ class Config:
                                        # candidate set only), "none" (accept cloud results)
     fixed_decay: bool = False          # FixedDecay ablation: lambda = lambda0 (no drift / risk terms)
     contract: bool = True              # NoContract ablation when False: explicit per-epoch history
+    # journal v2 Exp 4 ablations
+    no_graph: bool = False             # No-Graph: graph features of z ignored (score and history)
+    hist_window: int = 0               # Fixed-Window: h = mean of z over the last W epochs (0: decay)
+    profile_bind: bool = True          # pid_a binds trusted state to the profile version; False:
+                                       # No-Profile-Bind (state keyed by (u, a), kept across versions)
     # journal v2: AQRS (siemcrypt/aqrs.py) for hunting queries
     aqrs: str = "adaptive"             # "direct" | "fixed" | "adaptive"
     aqrs_k: tuple[int, int, int] = (1, 3, 5)                # cohort size of pi_0, pi_1, pi_2

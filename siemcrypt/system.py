@@ -82,5 +82,5 @@ class SIEMCrypt:
         self.timing.update({"phase12": t1 - t0, "phase3": t2 - t1, "phase4": t3 - t2, "phase5": t4 - t3})
         return EpochReport(e, len(events), drift, alerts, [{"qid": z["qid"], "y": z["y"], "phi": z["phi"]} for z in Z])
 
-    def investigate(self, d: Descriptor) -> Investigation:
-        return self.sa.investigate(d)
+    def investigate(self, d: Descriptor, **kw) -> Investigation:
+        return self.sa.investigate(d, **kw)
