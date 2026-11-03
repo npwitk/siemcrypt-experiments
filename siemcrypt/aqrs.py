@@ -21,6 +21,15 @@ query keeps sigma and replaces v by another value of the epoch.
   cohort   stable for the epoch per real query (extended, never reshuffled, if its profile
            grows); cfg.aqrs_dynamic redraws the covers on every issue (Dynamic-Cover ablation)
 
+"partition" (D29): the values of each dimension are ranked by their real epoch volume and cut
+into consecutive groups of k_max (a short tail joins the last group), each group into consecutive
+sub-groups of the smaller cohort size. A query's cohort is its whole (sub-)group, so the cohort is
+a function of the group, not of the real query: the real member is not the centre or the extreme
+of its covers by construction. Groups ignore the category filter (a value has one group for every
+sigma, so cohorts of one value under different filters do not intersect to it). With
+padding="cohort" the EE pads every member of a group to the group maximum (siemcrypt/laph.py,
+plan_cohort), so the cloud sees equal volumes inside a cohort.
+
 cfg.aqrs: "direct" (no cohort), "fixed" (k = cfg.aqrs_fixed_k for every query), "adaptive".
 cfg.aqrs_sticky (D28): the profile and cohort of a query are fixed at its first issue in the
 epoch from trusted history only, so a later repetition cannot escalate a query the cloud has
@@ -62,13 +71,61 @@ class AQRS:
         self.tuples = Counter()
         self._vol: dict[tuple, Counter] = {}
         self._domain: dict[str, set] = {}
+        self.groups: dict[tuple[str, str], tuple[tuple, tuple]] = {}  # (dim, v) -> (group, sub-group)
+        self._kept = False
+        self.known: deque[set] = deque(maxlen=cfg.aqrs_hist)  # (dim, v) seen in recent epochs
 
     # ---------------------------------------------------------------- epoch state
     def start_epoch(self, tuples: Counter) -> None:
-        """tuples: plaintext (u, r, c, s) -> count of the epoch's real events (EE-side)."""
+        """tuples: plaintext (u, r, c, s) -> count of the epoch's cloud-visible records (EE-side)."""
         self.tuples = tuples
         self._vol, self.cohorts, self.profile_of = {}, {}, {}
         self._domain = {"U": {t[0] for t in tuples}, "R": {t[1] for t in tuples}}
+        if self.cfg.aqrs_select == "partition" and not self._kept:
+            self.partition(tuples)
+        self._kept = False
+
+    def sizes(self) -> tuple[int, int]:
+        """(k_max, k_sub) of the partition."""
+        if self.cfg.aqrs == "fixed":
+            return self.cfg.aqrs_fixed_k, self.cfg.aqrs_fixed_k
+        ks = sorted({k for k in self.cfg.aqrs_k if k > 1}) or [1]
+        return ks[-1], ks[0]
+
+    @staticmethod
+    def _chunks(seq: list, k: int) -> list[list]:
+        out = [seq[i:i + k] for i in range(0, len(seq), k)]
+        if len(out) > 1 and len(out[-1]) < k:
+            tail = out.pop()
+            out[-1] = out[-1] + tail
+        return out
+
+    def partition(self, real: Counter, keep: bool = False) -> dict[str, list[tuple]]:
+        """Groups of consecutive volume ranks per dimension (D29), from the real epoch counts;
+        keep=True: computed before padding, kept by the next start_epoch."""
+        kmax, ksub = self.sizes()
+        self.groups, out = {}, {}
+        cur = {("U", t[0]) for t in real} | {("R", t[1]) for t in real}
+        past = set().union(*self.known) if self.known else set()
+        self.known.append(cur)
+        for d, i in (("U", 0), ("R", 1)):
+            # values of recent epochs with no record now stay in the domain (volume 0), so a hunt
+            # for a value that went quiet still gets a cohort
+            vol = Counter({v: 0 for dd, v in past if dd == d})
+            for t, n in real.items():
+                vol[t[i]] += n
+            vals = sorted(vol)
+            self.rng.shuffle(vals)  # random order among equal volumes
+            vals.sort(key=lambda v: -vol[v])
+            out[d] = []
+            for g in self._chunks(vals, kmax):
+                g = tuple(g)
+                out[d].append(g)
+                for sub in self._chunks(list(g), ksub):
+                    for v in sub:
+                        self.groups[(d, v)] = (g, tuple(sub))
+        self._kept = keep
+        return out
 
     def end_epoch(self) -> None:
         self.history.append(self.cur)
@@ -124,6 +181,10 @@ class AQRS:
     def _covers(self, s: Spec, n: int, exclude: set) -> list[Spec]:
         if n <= 0:
             return []
+        if self.cfg.aqrs_select == "partition":
+            g, sub = self.groups.get((s.dim, s.value), ((s.value,), (s.value,)))
+            grp = sub if len(exclude | {s.value}) + n <= len(sub) else g  # target size k
+            return [Spec(s.dim, v, s.cats) for v in grp if v not in exclude and v != s.value]
         cand = [v for v in self._candidates(s) if v not in exclude]
         vol = self.volumes(s.sigma)
         if self.cfg.aqrs_select in ("nearest", "near-random", "equal-first") and not self.cfg.aqrs_dynamic:

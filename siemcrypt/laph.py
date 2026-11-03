@@ -145,3 +145,49 @@ def exposure_by_epoch(events: list[Event], cfg: Config) -> dict[tuple[int, str, 
         for (d, v), L in tr.scores(by_eb[(e, b)]).items():
             out[(e, d, v)] = max(out.get((e, d, v), 0.0), L)
     return out
+
+
+def plan_cohort(events: list[Event], groups: dict[str, list[tuple]], cats: bool, rng) -> list[tuple]:
+    """D29 cohort-aligned padding: decoys that raise every member of an AQRS group to the group
+    maximum, per category if `cats` (so category-filtered hunting queries also see equal volumes
+    inside a cohort), otherwise on the total only.
+
+    Entity groups are padded exactly. Every decoy copies a real event of its entity (relation,
+    category, source, payload length; the category is the deficit's under `cats`), preferring one
+    whose resource still has a deficit, so resource groups are filled as far as real relations
+    allow and no relation is invented (an invented edge distorts the graph features of detection).
+    Remaining resource deficits stay open."""
+    kc = (lambda ev: ev.cat) if cats else (lambda ev: None)
+    cnt = {"U": Counter(), "R": Counter()}
+    of_u = defaultdict(list)
+    for ev in events:
+        cnt["U"][(ev.user, kc(ev))] += 1
+        cnt["R"][(ev.res, kc(ev))] += 1
+        of_u[ev.user].append(ev)
+    catset = sorted({kc(ev) for ev in events}, key=str)
+    deficit = {"U": Counter(), "R": Counter()}
+    for d in ("U", "R"):
+        for g in groups[d]:
+            for c in catset:
+                top = max(cnt[d][(v, c)] for v in g)
+                for v in g:
+                    if top > cnt[d][(v, c)]:
+                        deficit[d][(v, c)] = top - cnt[d][(v, c)]
+
+    out = []
+    units = [(u, c) for (u, c), z in sorted(deficit["U"].items(), key=str) for _ in range(z)]
+    rng.shuffle(units)
+    rdef = deficit["R"]
+    for u, c in units:
+        # copy a real event of u (of category c if cats), preferring one whose resource still has
+        # a deficit: decoys repeat real relations only, so graph features keep their shape
+        evs = [ev for ev in of_u[u] if c is None or ev.cat == c] or of_u[u]
+        need = [ev for ev in evs if rdef[(ev.res, kc(ev))] > 0]
+        ev = rng.choice(need or evs)
+        if rdef[(ev.res, kc(ev))] > 0:
+            rdef[(ev.res, kc(ev))] -= 1
+        out.append((u, ev.res, c if c is not None else ev.cat, ev.src, ev.ts, len(ev.payload)))
+    # remaining resource deficits: a real relation of the resource whose entity is the only one of
+    # its group to gain a record would break that group's equality, so they stay open (resource
+    # volumes are best effort; entity groups are exact)
+    return out

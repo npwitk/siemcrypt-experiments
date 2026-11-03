@@ -73,6 +73,23 @@ SYSTEMS = {
                            aqrs_sticky=True, aqrs_graph="ee", **PAD),
     "Fixed-5-D28w+P": dict(aqrs="fixed", aqrs_fixed_k=5, aqrs_select="near-random", aqrs_compat="sigma",
                            aqrs_sticky=True, aqrs_graph="ee", **PAD),
+    # D29: fixed volume-rank groups (+ cohort-aligned padding CP, per category; CPt total only)
+    "AQRS-G": dict(aqrs="adaptive", aqrs_k=(1, 3, 6), aqrs_select="partition", aqrs_sticky=True, aqrs_graph="ee"),
+    "AQRS-G+CP": dict(aqrs="adaptive", aqrs_k=(1, 3, 6), aqrs_select="partition", aqrs_sticky=True,
+                      aqrs_graph="ee", padding="cohort"),
+    "AQRS-G+CPt": dict(aqrs="adaptive", aqrs_k=(1, 3, 6), aqrs_select="partition", aqrs_sticky=True,
+                       aqrs_graph="ee", padding="cohort", cpad_cats=False),
+    "Fixed-5-G": dict(aqrs="fixed", aqrs_fixed_k=5, aqrs_select="partition", aqrs_sticky=True, aqrs_graph="ee"),
+    "Fixed-5-G+CP": dict(aqrs="fixed", aqrs_fixed_k=5, aqrs_select="partition", aqrs_sticky=True,
+                         aqrs_graph="ee", padding="cohort"),
+    # D29 final candidates: no direct issue for hunts (pi_0 gets k = 3), total-only padding
+    "AQRS-G3": dict(aqrs="adaptive", aqrs_k=(3, 3, 6), aqrs_select="partition", aqrs_sticky=True, aqrs_graph="ee"),
+    "AQRS-G3+CPt": dict(aqrs="adaptive", aqrs_k=(3, 3, 6), aqrs_select="partition", aqrs_sticky=True,
+                        aqrs_graph="ee", padding="cohort", cpad_cats=False),
+    "AQRS-G3+CP": dict(aqrs="adaptive", aqrs_k=(3, 3, 6), aqrs_select="partition", aqrs_sticky=True,
+                       aqrs_graph="ee", padding="cohort"),
+    "Fixed-5-G+CPt": dict(aqrs="fixed", aqrs_fixed_k=5, aqrs_select="partition", aqrs_sticky=True,
+                          aqrs_graph="ee", padding="cohort", cpad_cats=False),
 }
 CATS = [(None, 0.5), (frozenset({"auth_fail"}), 0.2), (frozenset({"data_transfer"}), 0.15),
         (frozenset({"conn_denied"}), 0.15)]
@@ -172,7 +189,7 @@ def observe(s: SIEMCrypt) -> list[dict]:
             feats.append([k, ln[i], rank.index(i) / max(1, k - 1), n[i] / (med + 1), cent[i] / max(1e-9, max(cent)),
                           int(i in S_c), int(n[i] == max(n)), alone[keys[i]], seen[keys[i]],
                           seen[keys[i]] / max(seen[x] for x in keys)])
-        rows.append(dict(epoch=e, dim=log["spec"].dim, filtered=int(log["spec"].cats is not None),
+        rows.append(dict(epoch=e, dim=log["spec"].dim, atk=int(log["spec"].value in s.attackers), filtered=int(log["spec"].cats is not None),
                          cls=log["cls"], pi=log["pi"], k=log["k"], k_eff=k, n_issue=log["n_issue"],
                          real=real, feats=feats, S_comb=sorted(S_comb),
                          uniform=1.0 / k, central=p_of(S_c), intersect=p_of(S_i), downstream=p_of(S_d),
@@ -189,6 +206,7 @@ def run_one(args) -> list[dict]:
     s = SIEMCrypt(cfg, profiles, contexts)
     wl = workload(events, truth, cfg.epoch_len, seed)
     s.hunter = lambda e: wl.get(e, [])
+    s.attackers = {gt.user for gt in truth}
     t0 = time.perf_counter()
     s.run(events)
     rows = observe(s)
@@ -243,8 +261,11 @@ def summarize(rows: list[dict], n_epochs: int) -> list[dict]:
     test = [r for r in rows if r["epoch"] > half]
     out = []
     for name in SYSTEMS:
-        for cls in ("all", 0, 1, 2):
-            rs = [r for r in test if r["system"] == name and (cls == "all" or r["cls"] == cls)]
+        for cls in ("all", "prot", "atk", 0, 1, 2):
+            # prot: issues the system protected (cohort > 1); atk: hunts of the true attackers
+            rs = [r for r in test if r["system"] == name and (
+                cls == "all" or (cls == "prot" and r["k"] > 1) or (cls == "atk" and r.get("atk"))
+                or r["cls"] == cls)]
             if not rs:
                 continue
             row = dict(system=name, cls=cls, issues=len(rs))

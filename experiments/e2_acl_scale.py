@@ -15,9 +15,15 @@ Ciphertexts are random elements of Z_{N^2}^*: homomorphic additions cost the sam
 real ciphertexts, and nothing is decrypted.
 
 Sweeps: (a) N fixed, selectivity q/N in {0.1%, 0.5%, 1%, 5%, 10%, 25%};
-        (b) q fixed, N growing; index construction time per N (EE, end of epoch).
+        (b) q fixed, N growing; index construction time per N (EE, end of epoch);
+        (c) journal v2: N and q fixed, j_q = |J_q| aggregated features in {1, 2, 4, 8};
+        (d) journal v2 (--ns): q/N = 1%, N over the given list (default 10^4 .. 10^7). Records
+            draw their ciphertexts from a shared pool (--pool), so 10^7 records fit in memory;
+            an HE addition costs the same whatever the ciphertext. Full recompute (S-FullHE)
+            is timed once per N above 10^6.
 
 Usage:  python experiments/e2_acl_scale.py [--quick] [--n 100000] [--q 1000] [--reps 5]
+                                           [--ns 10000,100000,1000000,10000000] [--parts abcd]
 Writes results/e2_acl_scale.csv and e2_acl_scale.md.
 """
 
@@ -51,8 +57,9 @@ FI = {f: j for j, f in enumerate(FEATS)}
 class Repo:
     """One epoch: entries, ciphertexts, index and checkpoint."""
 
-    def __init__(self, N: int, q: int, pk, rng: random.Random):
+    def __init__(self, N: int, q: int, pk, rng: random.Random, feats: tuple = None, pool: int = 0):
         self.N = N
+        self.feats = feats = feats or FEATS
         tok = lambda: os.urandom(32)  # noqa: E731
         users = [tok() for _ in range(max(N // 50, 10))]
         res = [tok() for _ in range(max(N // 200, 10))]
@@ -61,23 +68,29 @@ class Repo:
         self.target = tok()
         hit = set(rng.sample(range(N), q))
         n2 = pk.n2
+
+        def ct():
+            return gmpy2.mpz(rng.getrandbits(n2.bit_length() - 1))
+
+        shared = [(tuple(ct() for _ in feats), ct()) for _ in range(pool)] if pool else None
         self.entries, self.X = {}, {}
         for i in range(N):
             c = self.target if i in hit else rng.choice(cats)
             self.entries[i] = IndexEntry((rng.choice(users), rng.choice(res), c, rng.choice(srcs)), i // 500, 1, i)
-            self.X[i] = (tuple(gmpy2.mpz(rng.getrandbits(n2.bit_length() - 1)) for _ in FEATS),
-                         gmpy2.mpz(rng.getrandbits(n2.bit_length() - 1)))
+            self.X[i] = shared[i % pool] if shared else (tuple(ct() for _ in feats), ct())
         t0 = time.perf_counter()
         self.index = lineage.build_index(self.entries.values())
         self.t_build = time.perf_counter() - t0
         self.postings = lineage.postings_of(self.entries.values())
         self.cp = (1, os.urandom(32), self.index.root(), os.urandom(32), N)
-        self.q = dict(qid="q", attack="a", epoch=1, slot=0, tokens={"C": frozenset({self.target})}, feats=FEATS,
+        self.q = dict(qid="q", attack="a", epoch=1, slot=0, tokens={"C": frozenset({self.target})}, feats=feats,
                       source_weights={}, policy=Policy.VALUE, threshold=0.0)
 
 
-def bench(repo: Repo, he, reps: int) -> dict:
+def bench(repo: Repo, he, reps: int, full_reps: int | None = None) -> dict:
     q, cp = repo.q, repo.cp
+    FEATS = repo.feats
+    FI = {f: j for j, f in enumerate(FEATS)}
     adds = [0]
 
     def summer(cts):
@@ -88,7 +101,7 @@ def bench(repo: Repo, he, reps: int) -> dict:
         return acc
 
     src = lambda i: repo.entries[i].tokens[3]  # noqa: E731
-    out = {k: [] for k in ("retrieve", "aggregate", "verify_idx", "acl", "full")}
+    out = {k: [] for k in ("retrieve", "aggregate", "verify_idx", "acl", "full", "fullhe")}
     for _ in range(reps):
         # cloud: authenticated retrieval
         t0 = time.perf_counter()
@@ -122,10 +135,19 @@ def bench(repo: Repo, he, reps: int) -> dict:
         out["acl"].append(t_idx + time.perf_counter() - t0)
         acl_adds = adds[0] - a0
         # EE: full re-execution over the epoch
+        if full_reps is not None and len(out["full"]) >= full_reps:
+            continue
         t0 = time.perf_counter()
         Qf = {i for i, ent in repo.entries.items() if ent.tokens[2] in q["tokens"]["C"]}
         lineage.aggregate(q, Qf, repo.X.__getitem__, src, FI, he, summer)
         out["full"].append(time.perf_counter() - t0)
+        # S-FullHE: no EPII scoping, the cloud aggregates every record of the epoch (masked
+        # slots, B3), j_q + 1 sums over N ciphertexts
+        t0 = time.perf_counter()
+        for j in range(len(FEATS)):
+            summer(repo.X[i][0][j] for i in range(repo.N))
+        summer(repo.X[i][1] for i in range(repo.N))
+        out["fullhe"].append(time.perf_counter() - t0)
     ct_bytes = (int(he.pk.n2.bit_length()) + 7) // 8
     row = {f"{k}_ms": statistics.median(v) * 1e3 for k, v in out.items()}
     row.update(N=repo.N, q=len(Q), selectivity=len(Q) / repo.N, acl_hashes=hc.count, acl_he_adds=acl_adds,
@@ -142,34 +164,52 @@ def main() -> None:
     ap.add_argument("--q", type=int, default=1_000)
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--bits", type=int, default=2048)
+    ap.add_argument("--ns", default="10000,100000,1000000,10000000")
+    ap.add_argument("--pool", type=int, default=100_000)
+    ap.add_argument("--parts", default="abcd")
     args = ap.parse_args()
     if args.quick:
-        args.n, args.q, args.reps = 10_000, 100, 2
+        args.n, args.q, args.reps, args.ns, args.pool = 10_000, 100, 2, "1000,10000,50000", 1000
     t0 = time.time()
     pk, _ = paillier.keygen(args.bits)
     he = paillier.Paillier(pk)
     rng = random.Random(0)
     rows = []
-    sels = [0.001, 0.005, 0.01, 0.05, 0.10, 0.25]
+    sels = [0.001, 0.005, 0.01, 0.05, 0.10, 0.25] if "a" in args.parts else []
     for sel in sels:
         repo = Repo(args.n, max(1, int(sel * args.n)), pk, rng)
         rows.append(dict(sweep="selectivity", **bench(repo, he, args.reps)))
         print(rows[-1], flush=True)
-    Ns = [args.n // 10, args.n // 4, args.n // 2, args.n, args.n * 2]
+    Ns = [args.n // 10, args.n // 4, args.n // 2, args.n, args.n * 2] if "b" in args.parts else []
     for N in Ns:
         repo = Repo(N, args.q, pk, rng)
         rows.append(dict(sweep="repository", **bench(repo, he, args.reps)))
         print(rows[-1], flush=True)
+    for j in ((1, 2, 4, 8) if "c" in args.parts else ()):
+        feats = tuple(f"f{i}" for i in range(j))
+        repo = Repo(args.n, args.q, pk, rng, feats)
+        rows.append(dict(sweep="features", j_q=j, **bench(repo, he, args.reps)))
+        print(rows[-1], flush=True)
+    for N in ([int(x) for x in args.ns.split(",")] if "d" in args.parts else ()):
+        repo = Repo(N, max(1, N // 100), pk, rng, pool=args.pool)
+        big = N > 1_000_000
+        rows.append(dict(sweep="scale", **bench(repo, he, 2 if big else args.reps, 1 if big else None)))
+        print(rows[-1], flush=True)
+        del repo
     write_csv("e2_acl_scale.csv", rows)
     import platform
     md = [f"# Authenticated retrieval and ACL scalability ({platform.node()}, {args.bits}-bit Paillier, "
           f"|J| = {len(FEATS)} + realness, median of {args.reps})\n"]
     cols = [("q", "q"), ("selectivity", "q/N"), ("retrieve_ms", "EPII retrieve (ms)"),
             ("aggregate_ms", "SG-HEF aggregate (ms)"), ("verify_idx_ms", "VerifyIDX (ms)"), ("acl_ms", "ACL total (ms)"),
-            ("full_ms", "Full recompute (ms)"), ("acl_hashes", "ACL hashes"), ("acl_he_adds", "ACL HE adds"),
+            ("full_ms", "Full recompute (ms)"), ("fullhe_ms", "S-FullHE aggregate (ms)"), ("acl_hashes", "ACL hashes"), ("acl_he_adds", "ACL HE adds"),
             ("ee_bytes", "Bytes to EE")]
     for sweep, title, first in (("selectivity", f"(a) N = {args.n:,}, varying selectivity", None),
-                                ("repository", f"(b) q = {args.q:,}, varying N", ("N", "N"))):
+                                ("repository", f"(b) q = {args.q:,}, varying N", ("N", "N")),
+                                ("features", f"(c) N = {args.n:,}, q = {args.q:,}, varying j_q", ("j_q", "j_q")),
+                                ("scale", "(d) q/N = 1%, N up to 10^7 (shared ciphertext pool)", ("N", "N"))):
+        if not any(r["sweep"] == sweep for r in rows):
+            continue
         cs = ([first] if first else [("N", "N")]) + cols
         md += [f"\n## {title}\n", "| " + " | ".join(c[1] for c in cs) + " | Index build (ms) |",
                "|" + "---|" * (len(cs) + 1)]

@@ -98,7 +98,7 @@ class Config:
                                        # feature f, and the cloud aggregates over the whole epoch
     # journal version (siemcrypt/laph.py, siemcrypt/lineage.py)
     padding: str = "dummy"             # with gamma > 1: "dummy" single-use dummy tokens (SD);
-                                       # "fixed": uniform gamma over real values (FP); "laph": LAPH
+                                       # "fixed": uniform gamma over real values (FP); "laph": LAPH; "cohort": D29
     laph_w: tuple[float, float, float] = (0.5, 0.25, 0.25)  # (w_f, w_s, w_h)
     laph_theta: tuple[float, float] = (0.35, 0.65)          # (theta_1, theta_2)
     laph_gamma: tuple[float, float] = (1.5, 2.0)            # (gamma_1, gamma_2)
@@ -123,4 +123,7 @@ class Config:
     aqrs_sticky: bool = False          # D28: profile/cohort fixed at first issue, from history only
     aqrs_graph: str = "cloud"          # hunting evidence contracted by the "cloud" (journal) or the "ee"
     aqrs_slot: float = 300.0           # dispatch slot of pi_2
+    # D29: "partition" cover choice = fixed volume-rank groups (cohort = the whole group);
+    # padding="cohort" pads every member of a group to the group maximum (per category if cpad_cats)
+    cpad_cats: bool = True
     seed: int | None = None

@@ -34,7 +34,7 @@ from ..crypto.mmr import MMR
 from ..crypto.mmr import HashCounter
 from ..crypto.paillier import ZERO, Paillier
 from ..crypto.primitives import H, aead_encrypt, prf_token
-from ..laph import ExposureTracker, plan_decoys
+from ..laph import ExposureTracker, plan_cohort, plan_decoys
 from ..model import GRAPH_FEATURES, AttackProfile, Config, Context, Event, Policy
 from ..protocol import DIMS, IndexEntry, ProtectedRecord, aead_ad, leaf_data
 from .ka import GENESIS, KeyAuthority
@@ -115,7 +115,7 @@ class EdgeEncryptor:
         self.accepted: dict[str, dict] = {}             # qid -> accepted Phase 3 evidence (cfg.acl)
         self.mu_prev = None
         self.exposure = ExposureTracker(cfg) if cfg.padding == "laph" else None
-        self._epoch_scope = cfg.laph_scope == "epoch" and (
+        self._epoch_scope = cfg.padding == "cohort" or cfg.laph_scope == "epoch" and (
             cfg.padding == "laph" or (cfg.padding == "fixed" and cfg.gamma > 1))
         self.epoch_events: list[Event] = []    # epoch-scoped padding holds the epoch here
         self._queued: list[_Pending] = []      # decoys planned for the bucket being closed
@@ -193,6 +193,14 @@ class EdgeEncryptor:
 
     def _plan(self, events: list[Event]) -> list[tuple]:
         """Decoy plan over real values: LAPH (cfg.padding == "laph") or fixed padding ("fixed")."""
+        if self.cfg.padding == "cohort":  # D29: pad each AQRS group to its maximum
+            real = Counter((ev.user, ev.res, ev.cat, ev.src) for ev in events)
+            groups = self.aqrs.partition(real, keep=True)
+            live = {"U": {ev.user for ev in events}, "R": {ev.res for ev in events}}
+            # quiet values (volume 0, ranked last) are not padded: a decoy copies a real relation
+            groups = {d: [g for g in (tuple(v for v in g if v in live[d]) for g in gs) if g]
+                      for d, gs in groups.items()}
+            return plan_cohort(events, groups, self.cfg.cpad_cats, self.rng)
         if self.cfg.padding == "laph":
             gamma_of = {k: self.exposure.gamma(L) for k, L in self.exposure.scores(events).items()}
         else:
