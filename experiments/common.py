@@ -62,6 +62,11 @@ VARIANTS = {
     "NoProfileBind": {"profile_bind": False},
     "J2": {"acl": True, "aqrs": "fixed", "aqrs_fixed_k": 5, "aqrs_select": "partition", "aqrs_sticky": True,
            "aqrs_graph": "ee", "padding": "cohort", "cpad_cats": False},     # D29 default of the journal
+    # D30: J2 with graph features recomputed by the EE over real records (padding-neutral detection)
+    "J2R": {"acl": True, "aqrs": "fixed", "aqrs_fixed_k": 5, "aqrs_select": "partition", "aqrs_sticky": True,
+            "aqrs_graph": "ee", "padding": "cohort", "cpad_cats": False, "graph_real_only": True},
+    "J2R3": {"acl": True, "aqrs": "fixed", "aqrs_fixed_k": 3, "aqrs_select": "partition", "aqrs_sticky": True,
+             "aqrs_graph": "ee", "padding": "cohort", "cpad_cats": False, "graph_real_only": True},
 }
 
 

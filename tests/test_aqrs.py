@@ -122,3 +122,38 @@ def test_cohort_padding_equalizes_groups():
         for c in cats:
             assert len({vis[(u, c)] for u in g}) == 1, (g, c)
     assert s.ee.stats["decoy"] > 0
+
+
+def test_opt_groups_valid_and_no_costlier_than_chunks():
+    rng = random.Random(5)
+    for n in (7, 40, 300):
+        vals = [f"v{i}" for i in range(n)]
+        vol = Counter({v: int(5 * rng.paretovariate(1.1)) for v in vals})
+        vals.sort(key=lambda v: -vol[v])
+        for k in (3, 5):
+            g = AQRS._opt_groups(vals, vol, k)
+            assert sorted(sum(g, [])) == sorted(vals)
+            assert n < k or all(len(x) >= k for x in g)
+            assert all(len(x) <= 2 * k - 1 for x in g) or len(g) == 1
+
+            def cost(gs):
+                return sum(vol[x[0]] * len(x) - sum(vol[y] for y in x) for x in gs)
+
+            assert cost(g) <= cost(AQRS._chunks(vals, k))
+
+
+def test_graph_real_only_makes_detection_padding_neutral():
+    """D30: with the EE recomputing graph features over real records, a padded run scores every
+    (entity, attack) exactly as the unpadded run."""
+    sc = SynthConfig(epochs=3, events_per_epoch=300, n_users=40, seed=4)
+    events, _ = generate(sc)
+    profiles, contexts = default_profiles_and_contexts()
+    logs = []
+    for over in ({}, dict(padding="cohort", cpad_cats=False, aqrs="fixed", aqrs_fixed_k=5,
+                          aqrs_select="partition", graph_real_only=True)):
+        s = SIEMCrypt(config("J", seed=4, **over), profiles, contexts)
+        s.run(events)
+        logs.append(sorted((e, u, a, round(S, 9)) for e, u, a, S, *_ in s.ee.score_log))
+        if over:
+            assert s.ee.stats["decoy"] > 0
+    assert logs[0] == logs[1]

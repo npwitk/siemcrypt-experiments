@@ -90,6 +90,10 @@ SYSTEMS = {
                        aqrs_graph="ee", padding="cohort"),
     "Fixed-5-G+CPt": dict(aqrs="fixed", aqrs_fixed_k=5, aqrs_select="partition", aqrs_sticky=True,
                           aqrs_graph="ee", padding="cohort", cpad_cats=False),
+    # D29 grouping design (e3_d29_design.py): k and chunked ("G") vs cost-optimal ("O") groups
+    **{f"D29-{p}{k}": dict(aqrs="fixed", aqrs_fixed_k=k, aqrs_select="partition", aqrs_sticky=True, aqrs_graph="ee",
+                           padding="cohort", cpad_cats=False, aqrs_part="opt" if p == "O" else "chunk")
+       for p in ("G", "O") for k in (3, 5, 8)},
 }
 CATS = [(None, 0.5), (frozenset({"auth_fail"}), 0.2), (frozenset({"data_transfer"}), 0.15),
         (frozenset({"conn_denied"}), 0.15)]

@@ -120,10 +120,11 @@ def stratify(per_value, exposure, dim: str, cfg) -> dict[str, float | None]:
     return {t: (sum(hits[t]) / len(hits[t]) if hits[t] else None) for t in TIERS}
 
 
-def attacks(name: str, sp: dict, seed: int) -> dict:
+def attacks(name: str, sp: dict, seed: int, sc=None) -> dict:
+    """sc: test stream (default TEST); the attacker's prior is a benign stream of the same shape."""
     cfg = make_cfg(sp, seed=seed)
-    events, _ = generate(replace(TEST, seed=seed))
-    aux, _ = generate(AUX)
+    events, _ = generate(replace(sc or TEST, seed=seed))
+    aux, _ = generate(AUX if sc is None else replace(benign(sc), seed=1001))
     s = run(cfg, events)
     st = s.ee.stats
     real = max(st["real"], 1)

@@ -100,6 +100,35 @@ class AQRS:
             out[-1] = out[-1] + tail
         return out
 
+    @staticmethod
+    def _opt_groups(vals: list, vol: Counter, k: int) -> list[list]:
+        """Cost-optimal partition of the volume ranking (vals sorted by descending volume) into
+        consecutive groups of k..2k-1 members, minimizing the padding sum(max - v) of the groups.
+        Groups of 2k or more never help (they split into two at no extra cost), so the bound keeps
+        the DP at O(n k) while every cohort still has at least k members."""
+        n = len(vals)
+        if n < 2 * k:
+            return [vals]
+        v = [vol[x] for x in vals]
+        pre = [0]
+        for x in v:
+            pre.append(pre[-1] + x)
+        inf = float("inf")
+        f, cut = [0.0] + [inf] * n, [0] * (n + 1)
+        for j in range(k, n + 1):
+            for s in range(k, min(2 * k - 1, j) + 1):
+                a = j - s
+                if f[a] == inf:
+                    continue
+                c = f[a] + v[a] * s - (pre[j] - pre[a])
+                if c < f[j]:
+                    f[j], cut[j] = c, a
+        out, j = [], n
+        while j > 0:
+            out.append(vals[cut[j]:j])
+            j = cut[j]
+        return out[::-1]
+
     def partition(self, real: Counter, keep: bool = False) -> dict[str, list[tuple]]:
         """Groups of consecutive volume ranks per dimension (D29), from the real epoch counts;
         keep=True: computed before padding, kept by the next start_epoch."""
@@ -118,7 +147,9 @@ class AQRS:
             self.rng.shuffle(vals)  # random order among equal volumes
             vals.sort(key=lambda v: -vol[v])
             out[d] = []
-            for g in self._chunks(vals, kmax):
+            parts = (self._opt_groups(vals, vol, kmax) if self.cfg.aqrs_part == "opt"
+                     else self._chunks(vals, kmax))
+            for g in parts:
                 g = tuple(g)
                 out[d].append(g)
                 for sub in self._chunks(list(g), ksub):

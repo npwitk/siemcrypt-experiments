@@ -1,0 +1,99 @@
+A done 230s
+B done 316s
+C done 1101s
+# D29 grouping design: padding cost vs privacy and detection (synthetic)
+
+Seeds [1, 2, 3, 4, 5]. Lower is better for every attack column (decoy AUC: 0.5 ideal). G = consecutive groups of k, O = cost-optimal groups of k..2k-1, +R = graph features over real records (D30).
+
+## Part A: volume attacks (e3_leakage stream: 80 users, 600 events / epoch)
+
+| Design | decoys / real | HE enc / event | U recovery | high-exposure U | U (decoy-aware) | linkage | linkage high | decoy AUC |
+|---|---|---|---|---|---|---|---|---|
+| NP | 0.000 | 3.000 | 0.091 | 0.410 | 0.089 | 0.082 | 0.413 | - |
+| LAPH-E | 0.602 | 4.807 | 0.069 | 0.283 | 0.061 | 0.066 | 0.265 | 0.750 |
+| G3 | 0.338 | 4.015 | 0.062 | 0.182 | 0.084 | 0.069 | 0.281 | 0.883 |
+| O3 | 0.329 | 3.987 | 0.064 | 0.210 | 0.083 | 0.063 | 0.259 | 0.890 |
+| G5 | 0.700 | 5.101 | 0.048 | 0.096 | 0.074 | 0.060 | 0.248 | 0.870 |
+| O5 | 0.686 | 5.058 | 0.046 | 0.118 | 0.084 | 0.061 | 0.259 | 0.878 |
+| G8 | 1.306 | 6.917 | 0.036 | 0.100 | 0.074 | 0.058 | 0.237 | 0.856 |
+| O8 | 1.290 | 6.870 | 0.038 | 0.083 | 0.078 | 0.048 | 0.204 | 0.861 |
+
+## Part A: detection (E1 test stream)
+
+| Design | macro F1 | macro AUC | cred_access recall | exfil recall | multi_source recall |
+|---|---|---|---|---|---|
+| NP | 0.637 | 0.982 | 0.600 | 1.000 | 1.000 |
+| LAPH-E | 0.618 | 0.985 | 0.950 | 1.000 | 1.000 |
+| NP+R | 0.637 | 0.982 | 0.600 | 1.000 | 1.000 |
+| LAPH-E+R | 0.637 | 0.982 | 0.600 | 1.000 | 1.000 |
+| G3 | 0.588 | 0.981 | 0.500 | 1.000 | 1.000 |
+| G3+R | 0.637 | 0.982 | 0.600 | 1.000 | 1.000 |
+| O3 | 0.639 | 0.982 | 0.600 | 1.000 | 1.000 |
+| O3+R | 0.637 | 0.982 | 0.600 | 1.000 | 1.000 |
+| G5 | 0.524 | 0.981 | 0.450 | 1.000 | 1.000 |
+| G5+R | 0.637 | 0.982 | 0.600 | 1.000 | 1.000 |
+| O5 | 0.554 | 0.981 | 0.500 | 1.000 | 1.000 |
+| O5+R | 0.637 | 0.982 | 0.600 | 1.000 | 1.000 |
+| G8 | 0.451 | 0.929 | 0.400 | 1.000 | 1.000 |
+| G8+R | 0.648 | 0.982 | 0.650 | 1.000 | 1.000 |
+| O8 | 0.497 | 0.975 | 0.400 | 1.000 | 1.000 |
+| O8+R | 0.637 | 0.982 | 0.600 | 1.000 | 1.000 |
+
+## Part B: query identification (best attack; ideal = mean 1/|cohort|)
+
+| Design | all | attacker hunts | high-risk | ideal (uniform) | mean cohort | decoys / real | HE adds / hunt | bytes / hunt |
+|---|---|---|---|---|---|---|---|---|
+| G3 | 0.348 | 0.364 | 0.337 | 0.333 | 3.01 | 0.303 | 239 | 8409 |
+| O3 | 0.317 | 0.318 | 0.376 | 0.312 | 3.29 | 0.296 | 248 | 8805 |
+| G5 | 0.225 | 0.208 | 0.266 | 0.200 | 5.00 | 0.654 | 499 | 16056 |
+| O5 | 0.205 | 0.189 | 0.257 | 0.187 | 5.48 | 0.644 | 508 | 16791 |
+| G8 | 0.125 | 0.136 | 0.130 | 0.125 | 8.04 | 1.198 | 1068 | 30397 |
+| O8 | 0.143 | 0.119 | 0.120 | 0.117 | 8.80 | 1.185 | 1071 | 31435 |
+
+## Part C: data size, more users, 7.5 events per user per epoch
+
+| Design | users=80 | users=200 | users=500 | users=1000 |
+|---|---|---|---|---|
+| G5 decoys / real | 0.700 | 0.654 | 0.599 | 0.563 |
+| O5 decoys / real | 0.686 | 0.644 | 0.592 | 0.557 |
+| G3 decoys / real | 0.338 | 0.303 | 0.277 | 0.264 |
+| O3 decoys / real | 0.329 | 0.295 | 0.272 | 0.260 |
+| G5 HE enc / event | 5.101 | 4.961 | 4.797 | 4.688 |
+| O5 HE enc / event | 5.058 | 4.931 | 4.775 | 4.672 |
+| G3 HE enc / event | 4.015 | 3.909 | 3.832 | 3.791 |
+| O3 HE enc / event | 3.987 | 3.886 | 3.816 | 3.779 |
+| G5 high-exposure U | 0.096 | 0.152 | 0.205 | 0.162 |
+| O5 high-exposure U | 0.118 | 0.234 | 0.169 | 0.206 |
+| G3 high-exposure U | 0.182 | 0.242 | 0.299 | 0.277 |
+| O3 high-exposure U | 0.210 | 0.331 | 0.354 | 0.378 |
+| G5 linkage | 0.060 | 0.032 | 0.017 | 0.012 |
+| O5 linkage | 0.061 | 0.029 | 0.018 | 0.013 |
+| G3 linkage | 0.069 | 0.036 | 0.021 | 0.014 |
+| O3 linkage | 0.063 | 0.033 | 0.018 | 0.013 |
+| G5 identification | 0.200 | 0.206 | 0.265 | 0.200 |
+| O5 identification | 0.228 | 0.223 | 0.272 | 0.202 |
+
+## Part C: data size, more events per user, 80 users
+
+| Design | events=600 | events=1500 | events=3000 | events=6000 |
+|---|---|---|---|---|
+| G5 decoys / real | 0.700 | 0.741 | 0.748 | 0.758 |
+| O5 decoys / real | 0.686 | 0.733 | 0.743 | 0.755 |
+| G3 decoys / real | 0.338 | 0.347 | 0.350 | 0.354 |
+| O3 decoys / real | 0.329 | 0.339 | 0.344 | 0.351 |
+| G5 HE enc / event | 5.101 | 5.224 | 5.245 | 5.273 |
+| O5 HE enc / event | 5.058 | 5.199 | 5.230 | 5.266 |
+| G3 HE enc / event | 4.015 | 4.041 | 4.050 | 4.063 |
+| O3 HE enc / event | 3.987 | 4.016 | 4.033 | 4.052 |
+| G5 high-exposure U | 0.096 | 0.165 | 0.205 | 0.233 |
+| O5 high-exposure U | 0.118 | 0.222 | 0.232 | 0.198 |
+| G3 high-exposure U | 0.182 | 0.269 | 0.252 | 0.302 |
+| O3 high-exposure U | 0.210 | 0.309 | 0.255 | 0.389 |
+| G5 linkage | 0.060 | 0.062 | 0.073 | 0.083 |
+| O5 linkage | 0.061 | 0.071 | 0.066 | 0.080 |
+| G3 linkage | 0.069 | 0.077 | 0.087 | 0.103 |
+| O3 linkage | 0.063 | 0.064 | 0.069 | 0.084 |
+| G5 identification | 0.200 | 0.215 | 0.202 | 0.200 |
+| O5 identification | 0.228 | 0.211 | 0.193 | 0.211 |
+
+Total time 1101s

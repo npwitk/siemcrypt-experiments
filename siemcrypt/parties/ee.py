@@ -142,6 +142,7 @@ class EdgeEncryptor:
         # evaluation-only ground truth; no protocol step reads these
         self.score_log: list[tuple] = []  # (epoch, user, attack, S, z, h^(e-1))
         self.decoy_rids: set[tuple[int, int]] = set()
+        self._mu_clean = None                  # epoch profile over real records (graph_real_only)
         self.horizon_log: list[tuple] = []  # (epoch, user, attack, ell, lambda)
         self.acl_log: list[dict] = []       # per verification: kind, ok, seconds, hashes, he_adds
         # journal v2: AQRS for hunting queries
@@ -466,6 +467,12 @@ class EdgeEncryptor:
         self.stats["graph_reject"] += bad
         self.stats["graph_omitted"] += omitted
         self.stats["drift_reject"] += int(not drift_ok)
+        if self.cfg.graph_real_only and self.decoy_rids:
+            # drift over real records only (see _real_graph)
+            Zc = [dict(z, Q=set(z["Q"]) - self.decoy_rids) for z in Z]
+            _, mu_c = lineage.contract(Zc, lambda rid: self.epoch_entries[rid[1]], {}, None)
+            my_drift = lineage.drift(mu_c, self._mu_clean)
+            self._mu_clean = mu_c
         return admitted, my_drift
 
     # ================================================================ Phase 5, Step 6: screening
@@ -613,9 +620,24 @@ class EdgeEncryptor:
                 del self.state[key]
                 self.stats["lineage_retired"] += 1
 
+    def _real_graph(self, updates: list[tuple]) -> list[tuple]:
+        """D30: the cloud's graph features count decoys, which it cannot tell apart, so padding
+        inflates degrees and bucket spreads of padded entities. After the C_G check the EE recomputes
+        them from the update's references minus its own decoys (EE-local; the cloud sees nothing new).
+        Same features as lineage.contract: degree, resources, sources, relations, buckets."""
+        ng, out = len(GRAPH_FEATURES), []
+        for upd in updates:
+            real = [self.epoch_entries[rid[1]] for rid in upd[3] if rid not in self.decoy_rids]
+            g = [len(real), len({x.tokens[1] for x in real}), len({x.tokens[3] for x in real}),
+                 len({(x.tokens[1], x.tokens[2]) for x in real}), len({x.bucket for x in real})]
+            out.append((upd[0], upd[1], g + list(upd[2][ng:]), *upd[3:]))
+        return out
+
     def phase5(self, updates: list[tuple], drift: float) -> list[Descriptor]:
         if self.cfg.acl:
             updates, drift = self.verify_graph(updates, drift)
+        if self.cfg.graph_real_only and self.decoy_rids:
+            updates = self._real_graph(updates)
         e, alerts, seen = self.epoch, [], set()
         n = len(GRAPH_FEATURES)
         for upd in updates:

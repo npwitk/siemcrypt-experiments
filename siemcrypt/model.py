@@ -132,4 +132,6 @@ class Config:
     # D29: "partition" cover choice = fixed volume-rank groups (cohort = the whole group);
     # padding="cohort" pads every member of a group to the group maximum (per category if cpad_cats)
     cpad_cats: bool = True
+    graph_real_only: bool = False      # D30: EE recomputes graph features over real records after the C_G check
+    aqrs_part: str = "chunk"           # "chunk": consecutive groups of k; "opt": k..2k-1 members, min padding
     seed: int | None = None
