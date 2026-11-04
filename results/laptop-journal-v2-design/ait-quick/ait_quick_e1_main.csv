@@ -1,0 +1,13 @@
+system,scenario,attack_class,incidents,detected,false_entities,precision,recall,f1,delay,auc,recall_at_fp2
+S,harrison,recon,0,0,1,0.0,nan,nan,,nan,nan
+S,harrison,web_attack,0,0,2,0.0,nan,nan,,nan,nan
+S,harrison,priv_esc,0,0,0,1.0,nan,nan,,nan,nan
+S,harrison,dns_exfil,1,1,1,0.5,1.0,0.6666666666666666,7,0.9494949494949495,1.0
+J2,harrison,recon,0,0,2,0.0,nan,nan,,nan,nan
+J2,harrison,web_attack,0,0,3,0.0,nan,nan,,nan,nan
+J2,harrison,priv_esc,0,0,2,0.0,nan,nan,,nan,nan
+J2,harrison,dns_exfil,1,1,1,0.5,1.0,0.6666666666666666,8,0.9387626262626263,1.0
+J2R,harrison,recon,0,0,1,0.0,nan,nan,,nan,nan
+J2R,harrison,web_attack,0,0,2,0.0,nan,nan,,nan,nan
+J2R,harrison,priv_esc,0,0,0,1.0,nan,nan,,nan,nan
+J2R,harrison,dns_exfil,1,1,1,0.5,1.0,0.6666666666666666,7,0.9494949494949495,1.0

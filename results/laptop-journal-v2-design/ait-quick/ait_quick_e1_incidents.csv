@@ -1,0 +1,4 @@
+system,scenario,incident,attack_class,detected,delay
+S,harrison,dns_exfil:192.168.131.109,dns_exfil,1,7
+J2,harrison,dns_exfil:192.168.131.109,dns_exfil,1,8
+J2R,harrison,dns_exfil:192.168.131.109,dns_exfil,1,7
