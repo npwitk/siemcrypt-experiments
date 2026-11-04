@@ -1,0 +1,211 @@
+deviation,stage,level,seed,detected,acl_reject,graph_reject,graph_omitted,drift_reject,releases,contexts,inconsistent_admitted
+Omit queried posting entry,Authenticated EPII,ACL,1,1,3,0,0,0,0,3,0
+Omit queried posting entry,Authenticated EPII,ACL,2,1,3,0,0,0,0,3,0
+Omit queried posting entry,Authenticated EPII,ACL,3,1,3,0,0,0,0,3,0
+Omit queried posting entry,Authenticated EPII,ACL,4,1,3,0,0,0,0,3,0
+Omit queried posting entry,Authenticated EPII,ACL,5,1,3,0,0,0,0,3,0
+Substitute posting entry,Authenticated EPII,ACL,1,1,3,0,0,0,0,3,0
+Substitute posting entry,Authenticated EPII,ACL,2,1,3,0,0,0,0,3,0
+Substitute posting entry,Authenticated EPII,ACL,3,1,3,0,0,0,0,3,0
+Substitute posting entry,Authenticated EPII,ACL,4,1,3,0,0,0,0,3,0
+Substitute posting entry,Authenticated EPII,ACL,5,1,3,0,0,0,0,3,0
+Replay stale index state,Checkpoint/EPII root,ACL,1,1,3,0,0,0,0,3,0
+Replay stale index state,Checkpoint/EPII root,ACL,2,1,3,0,0,0,0,3,0
+Replay stale index state,Checkpoint/EPII root,ACL,3,1,3,0,0,0,0,3,0
+Replay stale index state,Checkpoint/EPII root,ACL,4,1,3,0,0,0,0,3,0
+Replay stale index state,Checkpoint/EPII root,ACL,5,1,3,0,0,0,0,3,0
+Bind to stale checkpoint,Context commitment,ACL,1,1,3,0,0,0,0,3,0
+Bind to stale checkpoint,Context commitment,ACL,2,1,3,0,0,0,0,3,0
+Bind to stale checkpoint,Context commitment,ACL,3,1,3,0,0,0,0,3,0
+Bind to stale checkpoint,Context commitment,ACL,4,1,3,0,0,0,0,3,0
+Bind to stale checkpoint,Context commitment,ACL,5,1,3,0,0,0,0,3,0
+Omit valid candidate,Candidate recomputation,ACL,1,1,3,0,0,0,0,3,0
+Omit valid candidate,Candidate recomputation,ACL,2,1,3,0,0,0,0,3,0
+Omit valid candidate,Candidate recomputation,ACL,3,1,3,0,0,0,0,3,0
+Omit valid candidate,Candidate recomputation,ACL,4,1,3,0,0,0,0,3,0
+Omit valid candidate,Candidate recomputation,ACL,5,1,3,0,0,0,0,3,0
+Add invalid candidate,Candidate recomputation,ACL,1,1,3,0,0,0,0,3,0
+Add invalid candidate,Candidate recomputation,ACL,2,1,3,0,0,0,0,3,0
+Add invalid candidate,Candidate recomputation,ACL,3,1,3,0,0,0,0,3,0
+Add invalid candidate,Candidate recomputation,ACL,4,1,3,0,0,0,0,3,0
+Add invalid candidate,Candidate recomputation,ACL,5,1,3,0,0,0,0,3,0
+Modify HE aggregate,ACL recomputation,ACL,1,1,3,0,0,0,0,3,0
+Modify HE aggregate,ACL recomputation,ACL,2,1,3,0,0,0,0,3,0
+Modify HE aggregate,ACL recomputation,ACL,3,1,3,0,0,0,0,3,0
+Modify HE aggregate,ACL recomputation,ACL,4,1,3,0,0,0,0,3,0
+Modify HE aggregate,ACL recomputation,ACL,5,1,3,0,0,0,0,3,0
+Aggregate wrong candidate set,ACL recomputation,ACL,1,1,3,0,0,0,0,3,0
+Aggregate wrong candidate set,ACL recomputation,ACL,2,1,3,0,0,0,0,3,0
+Aggregate wrong candidate set,ACL recomputation,ACL,3,1,3,0,0,0,0,3,0
+Aggregate wrong candidate set,ACL recomputation,ACL,4,1,3,0,0,0,0,3,0
+Aggregate wrong candidate set,ACL recomputation,ACL,5,1,3,0,0,0,0,3,0
+Swap prescribed HE feature,ACL recomputation (C_spec),ACL,1,1,3,0,0,0,0,3,0
+Swap prescribed HE feature,ACL recomputation (C_spec),ACL,2,1,3,0,0,0,0,3,0
+Swap prescribed HE feature,ACL recomputation (C_spec),ACL,3,1,3,0,0,0,0,3,0
+Swap prescribed HE feature,ACL recomputation (C_spec),ACL,4,1,3,0,0,0,0,3,0
+Swap prescribed HE feature,ACL recomputation (C_spec),ACL,5,1,3,0,0,0,0,3,0
+Modify contracted relation,Graph-lineage verification,ACL,1,1,0,1,0,0,3,3,0
+Modify contracted relation,Graph-lineage verification,ACL,2,1,0,1,0,0,3,3,0
+Modify contracted relation,Graph-lineage verification,ACL,3,1,0,2,0,0,3,3,0
+Modify contracted relation,Graph-lineage verification,ACL,4,1,0,1,0,0,3,3,0
+Modify contracted relation,Graph-lineage verification,ACL,5,1,0,2,0,1,3,3,0
+Omit contributing graph evidence,Graph-lineage verification,ACL,1,1,0,1,0,1,3,3,0
+Omit contributing graph evidence,Graph-lineage verification,ACL,2,1,0,0,1,1,3,3,0
+Omit contributing graph evidence,Graph-lineage verification,ACL,3,1,0,2,0,1,3,3,0
+Omit contributing graph evidence,Graph-lineage verification,ACL,4,1,0,1,0,1,3,3,0
+Omit contributing graph evidence,Graph-lineage verification,ACL,5,1,0,2,0,1,3,3,0
+Modify graph evidence/features,C_G/recomputation,ACL,1,1,0,1,0,0,3,3,0
+Modify graph evidence/features,C_G/recomputation,ACL,2,1,0,1,0,0,3,3,0
+Modify graph evidence/features,C_G/recomputation,ACL,3,1,0,1,0,0,3,3,0
+Modify graph evidence/features,C_G/recomputation,ACL,4,1,0,1,0,0,3,3,0
+Modify graph evidence/features,C_G/recomputation,ACL,5,1,0,1,0,0,3,3,0
+Suppress an entity update,Graph-lineage verification,ACL,1,1,0,0,1,0,3,3,0
+Suppress an entity update,Graph-lineage verification,ACL,2,1,0,0,1,0,3,3,0
+Suppress an entity update,Graph-lineage verification,ACL,3,1,0,0,1,0,3,3,0
+Suppress an entity update,Graph-lineage verification,ACL,4,1,0,0,1,0,3,3,0
+Suppress an entity update,Graph-lineage verification,ACL,5,1,0,0,1,0,3,3,0
+Modify drift D_e,Graph-lineage verification,ACL,1,1,0,0,0,1,3,3,0
+Modify drift D_e,Graph-lineage verification,ACL,2,1,0,0,0,1,3,3,0
+Modify drift D_e,Graph-lineage verification,ACL,3,1,0,0,0,1,3,3,0
+Modify drift D_e,Graph-lineage verification,ACL,4,1,0,0,0,1,3,3,0
+Modify drift D_e,Graph-lineage verification,ACL,5,1,0,0,0,1,3,3,0
+Omit queried posting entry,Authenticated EPII,Retrieval-Only,1,1,3,0,0,0,0,3,
+Omit queried posting entry,Authenticated EPII,Retrieval-Only,2,1,3,0,0,0,0,3,
+Omit queried posting entry,Authenticated EPII,Retrieval-Only,3,1,3,0,0,0,0,3,
+Omit queried posting entry,Authenticated EPII,Retrieval-Only,4,1,3,0,0,0,0,3,
+Omit queried posting entry,Authenticated EPII,Retrieval-Only,5,1,3,0,0,0,0,3,
+Substitute posting entry,Authenticated EPII,Retrieval-Only,1,1,3,0,0,0,0,3,
+Substitute posting entry,Authenticated EPII,Retrieval-Only,2,1,3,0,0,0,0,3,
+Substitute posting entry,Authenticated EPII,Retrieval-Only,3,1,3,0,0,0,0,3,
+Substitute posting entry,Authenticated EPII,Retrieval-Only,4,1,3,0,0,0,0,3,
+Substitute posting entry,Authenticated EPII,Retrieval-Only,5,1,3,0,0,0,0,3,
+Replay stale index state,Checkpoint/EPII root,Retrieval-Only,1,1,3,0,0,0,0,3,
+Replay stale index state,Checkpoint/EPII root,Retrieval-Only,2,1,3,0,0,0,0,3,
+Replay stale index state,Checkpoint/EPII root,Retrieval-Only,3,1,3,0,0,0,0,3,
+Replay stale index state,Checkpoint/EPII root,Retrieval-Only,4,1,3,0,0,0,0,3,
+Replay stale index state,Checkpoint/EPII root,Retrieval-Only,5,1,3,0,0,0,0,3,
+Bind to stale checkpoint,Context commitment,Retrieval-Only,1,1,3,0,0,0,0,3,
+Bind to stale checkpoint,Context commitment,Retrieval-Only,2,1,3,0,0,0,0,3,
+Bind to stale checkpoint,Context commitment,Retrieval-Only,3,1,3,0,0,0,0,3,
+Bind to stale checkpoint,Context commitment,Retrieval-Only,4,1,3,0,0,0,0,3,
+Bind to stale checkpoint,Context commitment,Retrieval-Only,5,1,3,0,0,0,0,3,
+Omit valid candidate,Candidate recomputation,Retrieval-Only,1,1,3,0,0,0,0,3,
+Omit valid candidate,Candidate recomputation,Retrieval-Only,2,1,3,0,0,0,0,3,
+Omit valid candidate,Candidate recomputation,Retrieval-Only,3,1,3,0,0,0,0,3,
+Omit valid candidate,Candidate recomputation,Retrieval-Only,4,1,3,0,0,0,0,3,
+Omit valid candidate,Candidate recomputation,Retrieval-Only,5,1,3,0,0,0,0,3,
+Add invalid candidate,Candidate recomputation,Retrieval-Only,1,1,3,0,0,0,0,3,
+Add invalid candidate,Candidate recomputation,Retrieval-Only,2,1,3,0,0,0,0,3,
+Add invalid candidate,Candidate recomputation,Retrieval-Only,3,1,3,0,0,0,0,3,
+Add invalid candidate,Candidate recomputation,Retrieval-Only,4,1,3,0,0,0,0,3,
+Add invalid candidate,Candidate recomputation,Retrieval-Only,5,1,3,0,0,0,0,3,
+Modify HE aggregate,ACL recomputation,Retrieval-Only,1,0,0,0,0,0,3,3,
+Modify HE aggregate,ACL recomputation,Retrieval-Only,2,0,0,0,0,0,3,3,
+Modify HE aggregate,ACL recomputation,Retrieval-Only,3,0,0,0,0,0,3,3,
+Modify HE aggregate,ACL recomputation,Retrieval-Only,4,0,0,0,0,0,3,3,
+Modify HE aggregate,ACL recomputation,Retrieval-Only,5,0,0,0,0,0,3,3,
+Aggregate wrong candidate set,ACL recomputation,Retrieval-Only,1,0,0,0,0,0,3,3,
+Aggregate wrong candidate set,ACL recomputation,Retrieval-Only,2,0,0,0,0,0,3,3,
+Aggregate wrong candidate set,ACL recomputation,Retrieval-Only,3,0,0,0,0,0,3,3,
+Aggregate wrong candidate set,ACL recomputation,Retrieval-Only,4,0,0,0,0,0,3,3,
+Aggregate wrong candidate set,ACL recomputation,Retrieval-Only,5,0,0,0,0,0,3,3,
+Swap prescribed HE feature,ACL recomputation (C_spec),Retrieval-Only,1,0,0,0,0,0,3,3,
+Swap prescribed HE feature,ACL recomputation (C_spec),Retrieval-Only,2,0,0,0,0,0,3,3,
+Swap prescribed HE feature,ACL recomputation (C_spec),Retrieval-Only,3,0,0,0,0,0,3,3,
+Swap prescribed HE feature,ACL recomputation (C_spec),Retrieval-Only,4,0,0,0,0,0,3,3,
+Swap prescribed HE feature,ACL recomputation (C_spec),Retrieval-Only,5,0,0,0,0,0,3,3,
+Modify contracted relation,Graph-lineage verification,Retrieval-Only,1,0,0,0,0,0,3,3,
+Modify contracted relation,Graph-lineage verification,Retrieval-Only,2,0,0,0,0,0,3,3,
+Modify contracted relation,Graph-lineage verification,Retrieval-Only,3,0,0,0,0,0,3,3,
+Modify contracted relation,Graph-lineage verification,Retrieval-Only,4,0,0,0,0,0,3,3,
+Modify contracted relation,Graph-lineage verification,Retrieval-Only,5,0,0,0,0,0,3,3,
+Omit contributing graph evidence,Graph-lineage verification,Retrieval-Only,1,0,0,0,0,0,3,3,
+Omit contributing graph evidence,Graph-lineage verification,Retrieval-Only,2,0,0,0,0,0,3,3,
+Omit contributing graph evidence,Graph-lineage verification,Retrieval-Only,3,0,0,0,0,0,3,3,
+Omit contributing graph evidence,Graph-lineage verification,Retrieval-Only,4,0,0,0,0,0,3,3,
+Omit contributing graph evidence,Graph-lineage verification,Retrieval-Only,5,0,0,0,0,0,3,3,
+Modify graph evidence/features,C_G/recomputation,Retrieval-Only,1,0,0,0,0,0,3,3,
+Modify graph evidence/features,C_G/recomputation,Retrieval-Only,2,0,0,0,0,0,3,3,
+Modify graph evidence/features,C_G/recomputation,Retrieval-Only,3,0,0,0,0,0,3,3,
+Modify graph evidence/features,C_G/recomputation,Retrieval-Only,4,0,0,0,0,0,3,3,
+Modify graph evidence/features,C_G/recomputation,Retrieval-Only,5,0,0,0,0,0,3,3,
+Suppress an entity update,Graph-lineage verification,Retrieval-Only,1,0,0,0,0,0,3,3,
+Suppress an entity update,Graph-lineage verification,Retrieval-Only,2,0,0,0,0,0,3,3,
+Suppress an entity update,Graph-lineage verification,Retrieval-Only,3,0,0,0,0,0,3,3,
+Suppress an entity update,Graph-lineage verification,Retrieval-Only,4,0,0,0,0,0,3,3,
+Suppress an entity update,Graph-lineage verification,Retrieval-Only,5,0,0,0,0,0,3,3,
+Modify drift D_e,Graph-lineage verification,Retrieval-Only,1,0,0,0,0,0,3,3,
+Modify drift D_e,Graph-lineage verification,Retrieval-Only,2,0,0,0,0,0,3,3,
+Modify drift D_e,Graph-lineage verification,Retrieval-Only,3,0,0,0,0,0,3,3,
+Modify drift D_e,Graph-lineage verification,Retrieval-Only,4,0,0,0,0,0,3,3,
+Modify drift D_e,Graph-lineage verification,Retrieval-Only,5,0,0,0,0,0,3,3,
+Omit queried posting entry,Authenticated EPII,No-ACL,1,0,0,0,0,0,3,3,
+Omit queried posting entry,Authenticated EPII,No-ACL,2,0,0,0,0,0,3,3,
+Omit queried posting entry,Authenticated EPII,No-ACL,3,0,0,0,0,0,3,3,
+Omit queried posting entry,Authenticated EPII,No-ACL,4,0,0,0,0,0,3,3,
+Omit queried posting entry,Authenticated EPII,No-ACL,5,0,0,0,0,0,3,3,
+Substitute posting entry,Authenticated EPII,No-ACL,1,0,0,0,0,0,3,3,
+Substitute posting entry,Authenticated EPII,No-ACL,2,0,0,0,0,0,3,3,
+Substitute posting entry,Authenticated EPII,No-ACL,3,0,0,0,0,0,3,3,
+Substitute posting entry,Authenticated EPII,No-ACL,4,0,0,0,0,0,3,3,
+Substitute posting entry,Authenticated EPII,No-ACL,5,0,0,0,0,0,3,3,
+Replay stale index state,Checkpoint/EPII root,No-ACL,1,0,0,0,0,0,3,3,
+Replay stale index state,Checkpoint/EPII root,No-ACL,2,0,0,0,0,0,3,3,
+Replay stale index state,Checkpoint/EPII root,No-ACL,3,0,0,0,0,0,3,3,
+Replay stale index state,Checkpoint/EPII root,No-ACL,4,0,0,0,0,0,3,3,
+Replay stale index state,Checkpoint/EPII root,No-ACL,5,0,0,0,0,0,3,3,
+Bind to stale checkpoint,Context commitment,No-ACL,1,0,0,0,0,0,3,3,
+Bind to stale checkpoint,Context commitment,No-ACL,2,0,0,0,0,0,3,3,
+Bind to stale checkpoint,Context commitment,No-ACL,3,0,0,0,0,0,3,3,
+Bind to stale checkpoint,Context commitment,No-ACL,4,0,0,0,0,0,3,3,
+Bind to stale checkpoint,Context commitment,No-ACL,5,0,0,0,0,0,3,3,
+Omit valid candidate,Candidate recomputation,No-ACL,1,0,0,0,0,0,3,3,
+Omit valid candidate,Candidate recomputation,No-ACL,2,0,0,0,0,0,3,3,
+Omit valid candidate,Candidate recomputation,No-ACL,3,0,0,0,0,0,3,3,
+Omit valid candidate,Candidate recomputation,No-ACL,4,0,0,0,0,0,3,3,
+Omit valid candidate,Candidate recomputation,No-ACL,5,0,0,0,0,0,3,3,
+Add invalid candidate,Candidate recomputation,No-ACL,1,0,0,0,0,0,3,3,
+Add invalid candidate,Candidate recomputation,No-ACL,2,0,0,0,0,0,3,3,
+Add invalid candidate,Candidate recomputation,No-ACL,3,0,0,0,0,0,3,3,
+Add invalid candidate,Candidate recomputation,No-ACL,4,0,0,0,0,0,3,3,
+Add invalid candidate,Candidate recomputation,No-ACL,5,0,0,0,0,0,3,3,
+Modify HE aggregate,ACL recomputation,No-ACL,1,0,0,0,0,0,3,3,
+Modify HE aggregate,ACL recomputation,No-ACL,2,0,0,0,0,0,3,3,
+Modify HE aggregate,ACL recomputation,No-ACL,3,0,0,0,0,0,3,3,
+Modify HE aggregate,ACL recomputation,No-ACL,4,0,0,0,0,0,3,3,
+Modify HE aggregate,ACL recomputation,No-ACL,5,0,0,0,0,0,3,3,
+Aggregate wrong candidate set,ACL recomputation,No-ACL,1,0,0,0,0,0,3,3,
+Aggregate wrong candidate set,ACL recomputation,No-ACL,2,0,0,0,0,0,3,3,
+Aggregate wrong candidate set,ACL recomputation,No-ACL,3,0,0,0,0,0,3,3,
+Aggregate wrong candidate set,ACL recomputation,No-ACL,4,0,0,0,0,0,3,3,
+Aggregate wrong candidate set,ACL recomputation,No-ACL,5,0,0,0,0,0,3,3,
+Swap prescribed HE feature,ACL recomputation (C_spec),No-ACL,1,0,0,0,0,0,3,3,
+Swap prescribed HE feature,ACL recomputation (C_spec),No-ACL,2,0,0,0,0,0,3,3,
+Swap prescribed HE feature,ACL recomputation (C_spec),No-ACL,3,0,0,0,0,0,3,3,
+Swap prescribed HE feature,ACL recomputation (C_spec),No-ACL,4,0,0,0,0,0,3,3,
+Swap prescribed HE feature,ACL recomputation (C_spec),No-ACL,5,0,0,0,0,0,3,3,
+Modify contracted relation,Graph-lineage verification,No-ACL,1,0,0,0,0,0,3,3,
+Modify contracted relation,Graph-lineage verification,No-ACL,2,0,0,0,0,0,3,3,
+Modify contracted relation,Graph-lineage verification,No-ACL,3,0,0,0,0,0,3,3,
+Modify contracted relation,Graph-lineage verification,No-ACL,4,0,0,0,0,0,3,3,
+Modify contracted relation,Graph-lineage verification,No-ACL,5,0,0,0,0,0,3,3,
+Omit contributing graph evidence,Graph-lineage verification,No-ACL,1,0,0,0,0,0,3,3,
+Omit contributing graph evidence,Graph-lineage verification,No-ACL,2,0,0,0,0,0,3,3,
+Omit contributing graph evidence,Graph-lineage verification,No-ACL,3,0,0,0,0,0,3,3,
+Omit contributing graph evidence,Graph-lineage verification,No-ACL,4,0,0,0,0,0,3,3,
+Omit contributing graph evidence,Graph-lineage verification,No-ACL,5,0,0,0,0,0,3,3,
+Modify graph evidence/features,C_G/recomputation,No-ACL,1,0,0,0,0,0,3,3,
+Modify graph evidence/features,C_G/recomputation,No-ACL,2,0,0,0,0,0,3,3,
+Modify graph evidence/features,C_G/recomputation,No-ACL,3,0,0,0,0,0,3,3,
+Modify graph evidence/features,C_G/recomputation,No-ACL,4,0,0,0,0,0,3,3,
+Modify graph evidence/features,C_G/recomputation,No-ACL,5,0,0,0,0,0,3,3,
+Suppress an entity update,Graph-lineage verification,No-ACL,1,0,0,0,0,0,3,3,
+Suppress an entity update,Graph-lineage verification,No-ACL,2,0,0,0,0,0,3,3,
+Suppress an entity update,Graph-lineage verification,No-ACL,3,0,0,0,0,0,3,3,
+Suppress an entity update,Graph-lineage verification,No-ACL,4,0,0,0,0,0,3,3,
+Suppress an entity update,Graph-lineage verification,No-ACL,5,0,0,0,0,0,3,3,
+Modify drift D_e,Graph-lineage verification,No-ACL,1,0,0,0,0,0,3,3,
+Modify drift D_e,Graph-lineage verification,No-ACL,2,0,0,0,0,0,3,3,
+Modify drift D_e,Graph-lineage verification,No-ACL,3,0,0,0,0,0,3,3,
+Modify drift D_e,Graph-lineage verification,No-ACL,4,0,0,0,0,0,3,3,
+Modify drift D_e,Graph-lineage verification,No-ACL,5,0,0,0,0,0,3,3,

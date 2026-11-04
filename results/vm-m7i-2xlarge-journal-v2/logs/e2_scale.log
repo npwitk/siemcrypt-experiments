@@ -1,0 +1,62 @@
+{'sweep': 'selectivity', 'retrieve_ms': 0.09416299999998046, 'aggregate_ms': 1.6752980000092066, 'verify_idx_ms': 0.10465900000156125, 'acl_ms': 1.5994310000024825, 'full_ms': 6.690598999995245, 'fullhe_ms': 1481.1814749999996, 'N': 100000, 'q': 100, 'selectivity': 0.001, 'acl_hashes': 19, 'acl_he_adds': 300, 'proof_hashes': 12, 'ee_bytes': 2880, 'index_build_ms': 304.9219420000071, 'index_keys': 2745}
+{'sweep': 'selectivity', 'retrieve_ms': 0.142005999975936, 'aggregate_ms': 8.268047999990813, 'verify_idx_ms': 0.31015599998340804, 'acl_ms': 8.004677000002403, 'full_ms': 13.234582999984923, 'fullhe_ms': 1481.6293040000232, 'N': 100000, 'q': 500, 'selectivity': 0.005, 'acl_hashes': 19, 'acl_he_adds': 1500, 'proof_hashes': 12, 'ee_bytes': 6080, 'index_build_ms': 304.63120299998536, 'index_keys': 2745}
+{'sweep': 'selectivity', 'retrieve_ms': 0.17912399999886475, 'aggregate_ms': 16.50796300000934, 'verify_idx_ms': 0.5285679999929016, 'acl_ms': 16.103474999965783, 'full_ms': 20.76355799999874, 'fullhe_ms': 1482.797617000017, 'N': 100000, 'q': 1000, 'selectivity': 0.01, 'acl_hashes': 19, 'acl_he_adds': 3000, 'proof_hashes': 12, 'ee_bytes': 10080, 'index_build_ms': 318.1723700000134, 'index_keys': 2745}
+{'sweep': 'selectivity', 'retrieve_ms': 0.6934319999913896, 'aggregate_ms': 84.14628599999219, 'verify_idx_ms': 2.650364999993826, 'acl_ms': 82.82488099999341, 'full_ms': 82.65287000000399, 'fullhe_ms': 1483.5600529999908, 'N': 100000, 'q': 5000, 'selectivity': 0.05, 'acl_hashes': 19, 'acl_he_adds': 15000, 'proof_hashes': 12, 'ee_bytes': 42080, 'index_build_ms': 306.24258999998233, 'index_keys': 2745}
+{'sweep': 'selectivity', 'retrieve_ms': 0.9828489999961221, 'aggregate_ms': 170.00987699998404, 'verify_idx_ms': 5.127404999996088, 'acl_ms': 172.37582600000678, 'full_ms': 164.2486819999931, 'fullhe_ms': 1484.573924000017, 'N': 100000, 'q': 10000, 'selectivity': 0.1, 'acl_hashes': 19, 'acl_he_adds': 30000, 'proof_hashes': 12, 'ee_bytes': 82080, 'index_build_ms': 306.93642399998566, 'index_keys': 2745}
+{'sweep': 'selectivity', 'retrieve_ms': 2.2798230000091735, 'aggregate_ms': 403.4031479999953, 'verify_idx_ms': 12.985379000014063, 'acl_ms': 414.9074400000359, 'full_ms': 394.3569360000083, 'fullhe_ms': 1485.4776579999793, 'N': 100000, 'q': 25000, 'selectivity': 0.25, 'acl_hashes': 19, 'acl_he_adds': 75000, 'proof_hashes': 12, 'ee_bytes': 202080, 'index_build_ms': 304.63535499998784, 'index_keys': 2745}
+{'sweep': 'repository', 'retrieve_ms': 0.13597899999240326, 'aggregate_ms': 15.859133999981623, 'verify_idx_ms': 0.5744780000043193, 'acl_ms': 15.97409499999003, 'full_ms': 15.819876000023214, 'fullhe_ms': 150.3381079999997, 'N': 10000, 'q': 1000, 'selectivity': 0.1, 'acl_hashes': 16, 'acl_he_adds': 3000, 'proof_hashes': 9, 'ee_bytes': 9984, 'index_build_ms': 29.248388000013392, 'index_keys': 315}
+{'sweep': 'repository', 'retrieve_ms': 0.16624200000592282, 'aggregate_ms': 16.414448000006132, 'verify_idx_ms': 0.5624750000094991, 'acl_ms': 16.066257000005635, 'full_ms': 17.102738999994926, 'fullhe_ms': 374.1438889999813, 'N': 25000, 'q': 1000, 'selectivity': 0.04, 'acl_hashes': 17, 'acl_he_adds': 3000, 'proof_hashes': 10, 'ee_bytes': 10016, 'index_build_ms': 72.5426190000178, 'index_keys': 720}
+{'sweep': 'repository', 'retrieve_ms': 0.16138899999873502, 'aggregate_ms': 16.378104000011717, 'verify_idx_ms': 0.5314240000018344, 'acl_ms': 16.056292000001804, 'full_ms': 18.739776999979085, 'fullhe_ms': 744.7586859999831, 'N': 50000, 'q': 1000, 'selectivity': 0.02, 'acl_hashes': 18, 'acl_he_adds': 3000, 'proof_hashes': 11, 'ee_bytes': 10048, 'index_build_ms': 150.0260950000154, 'index_keys': 1395}
+{'sweep': 'repository', 'retrieve_ms': 0.19189500000038606, 'aggregate_ms': 16.56405999997901, 'verify_idx_ms': 0.5467670000030012, 'acl_ms': 16.151763999999957, 'full_ms': 21.66555499999845, 'fullhe_ms': 1484.6884419999924, 'N': 100000, 'q': 1000, 'selectivity': 0.01, 'acl_hashes': 19, 'acl_he_adds': 3000, 'proof_hashes': 12, 'ee_bytes': 10080, 'index_build_ms': 309.01783900000623, 'index_keys': 2745}
+{'sweep': 'repository', 'retrieve_ms': 0.20742600000289713, 'aggregate_ms': 16.76091999999585, 'verify_idx_ms': 0.5539239999734491, 'acl_ms': 16.247560000010708, 'full_ms': 26.80177900001013, 'fullhe_ms': 2969.019811999999, 'N': 200000, 'q': 1000, 'selectivity': 0.005, 'acl_hashes': 20, 'acl_he_adds': 3000, 'proof_hashes': 13, 'ee_bytes': 10112, 'index_build_ms': 641.0142630000166, 'index_keys': 5445}
+{'sweep': 'features', 'j_q': 1, 'retrieve_ms': 0.18516200000817662, 'aggregate_ms': 11.483502000004364, 'verify_idx_ms': 0.5429260000084923, 'acl_ms': 11.154384999997546, 'full_ms': 16.93575300001271, 'fullhe_ms': 976.6878620000057, 'N': 100000, 'q': 1000, 'selectivity': 0.01, 'acl_hashes': 19, 'acl_he_adds': 2000, 'proof_hashes': 12, 'ee_bytes': 9568, 'index_build_ms': 302.59706399999686, 'index_keys': 2745}
+{'sweep': 'features', 'j_q': 2, 'retrieve_ms': 0.19565300002000185, 'aggregate_ms': 16.601664000006622, 'verify_idx_ms': 0.5446109999809323, 'acl_ms': 16.142104000010704, 'full_ms': 21.989781999991465, 'fullhe_ms': 1489.2209930000035, 'N': 100000, 'q': 1000, 'selectivity': 0.01, 'acl_hashes': 19, 'acl_he_adds': 3000, 'proof_hashes': 12, 'ee_bytes': 10080, 'index_build_ms': 309.0533760000085, 'index_keys': 2745}
+{'sweep': 'features', 'j_q': 4, 'retrieve_ms': 0.18369700001130695, 'aggregate_ms': 27.117632999988928, 'verify_idx_ms': 0.5531259999997928, 'acl_ms': 26.4822219999985, 'full_ms': 33.280848999993395, 'fullhe_ms': 2513.9300719999937, 'N': 100000, 'q': 1000, 'selectivity': 0.01, 'acl_hashes': 19, 'acl_he_adds': 5000, 'proof_hashes': 12, 'ee_bytes': 11104, 'index_build_ms': 306.70101100000124, 'index_keys': 2745}
+{'sweep': 'features', 'j_q': 8, 'retrieve_ms': 0.20257500000298023, 'aggregate_ms': 47.48423799998136, 'verify_idx_ms': 0.5565380000120967, 'acl_ms': 46.65297000002511, 'full_ms': 54.45055100000218, 'fullhe_ms': 4569.864567000024, 'N': 100000, 'q': 1000, 'selectivity': 0.01, 'acl_hashes': 19, 'acl_he_adds': 9000, 'proof_hashes': 12, 'ee_bytes': 13152, 'index_build_ms': 312.5561649999895, 'index_keys': 2745}
+{'sweep': 'scale', 'retrieve_ms': 0.07200599998213875, 'aggregate_ms': 1.5855010000223047, 'verify_idx_ms': 0.09878400004481591, 'acl_ms': 1.6518319999931919, 'full_ms': 2.06495800000539, 'fullhe_ms': 148.3898959999692, 'N': 10000, 'q': 100, 'selectivity': 0.01, 'acl_hashes': 16, 'acl_he_adds': 300, 'proof_hashes': 9, 'ee_bytes': 2784, 'index_build_ms': 28.72659599995586, 'index_keys': 315}
+{'sweep': 'scale', 'retrieve_ms': 0.1792150000028414, 'aggregate_ms': 16.665411000019503, 'verify_idx_ms': 0.5368840000414821, 'acl_ms': 16.111586000079114, 'full_ms': 20.671447000040644, 'fullhe_ms': 1484.5645720000107, 'N': 100000, 'q': 1000, 'selectivity': 0.01, 'acl_hashes': 19, 'acl_he_adds': 3000, 'proof_hashes': 12, 'ee_bytes': 10080, 'index_build_ms': 317.65373700000055, 'index_keys': 2745}
+{'sweep': 'scale', 'retrieve_ms': 1.3198469999906592, 'aggregate_ms': 173.23979999997619, 'verify_idx_ms': 5.572300999972413, 'acl_ms': 174.22041300000046, 'full_ms': 210.41329100000894, 'fullhe_ms': 14841.53868300001, 'N': 1000000, 'q': 10000, 'selectivity': 0.01, 'acl_hashes': 22, 'acl_he_adds': 30000, 'proof_hashes': 15, 'ee_bytes': 82176, 'index_build_ms': 3574.1529659999856, 'index_keys': 27045}
+{'sweep': 'scale', 'retrieve_ms': 15.358727500000668, 'aggregate_ms': 1896.6686894999896, 'verify_idx_ms': 74.80751499997496, 'acl_ms': 2024.763119499994, 'full_ms': 2345.703933999971, 'fullhe_ms': 148202.399487, 'N': 10000000, 'q': 100000, 'selectivity': 0.01, 'acl_hashes': 26, 'acl_he_adds': 300000, 'proof_hashes': 19, 'ee_bytes': 802304, 'index_build_ms': 48653.18580399997, 'index_keys': 270045}
+# Authenticated retrieval and ACL scalability (ip-172-31-8-110, 2048-bit Paillier, |J| = 2 + realness, median of 5)
+
+
+## (a) N = 100,000, varying selectivity
+
+| N | q | q/N | EPII retrieve (ms) | SG-HEF aggregate (ms) | VerifyIDX (ms) | ACL total (ms) | Full recompute (ms) | S-FullHE aggregate (ms) | ACL hashes | ACL HE adds | Bytes to EE | Index build (ms) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 100,000 | 100 | 0.10% | 0.09 | 1.68 | 0.10 | 1.60 | 6.69 | 1,481.18 | 19 | 300 | 2,880 | 305 |
+| 100,000 | 500 | 0.50% | 0.14 | 8.27 | 0.31 | 8.00 | 13.23 | 1,481.63 | 19 | 1,500 | 6,080 | 305 |
+| 100,000 | 1,000 | 1.00% | 0.18 | 16.51 | 0.53 | 16.10 | 20.76 | 1,482.80 | 19 | 3,000 | 10,080 | 318 |
+| 100,000 | 5,000 | 5.00% | 0.69 | 84.15 | 2.65 | 82.82 | 82.65 | 1,483.56 | 19 | 15,000 | 42,080 | 306 |
+| 100,000 | 10,000 | 10.00% | 0.98 | 170.01 | 5.13 | 172.38 | 164.25 | 1,484.57 | 19 | 30,000 | 82,080 | 307 |
+| 100,000 | 25,000 | 25.00% | 2.28 | 403.40 | 12.99 | 414.91 | 394.36 | 1,485.48 | 19 | 75,000 | 202,080 | 305 |
+
+## (b) q = 1,000, varying N
+
+| N | q | q/N | EPII retrieve (ms) | SG-HEF aggregate (ms) | VerifyIDX (ms) | ACL total (ms) | Full recompute (ms) | S-FullHE aggregate (ms) | ACL hashes | ACL HE adds | Bytes to EE | Index build (ms) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 10,000 | 1,000 | 10.00% | 0.14 | 15.86 | 0.57 | 15.97 | 15.82 | 150.34 | 16 | 3,000 | 9,984 | 29 |
+| 25,000 | 1,000 | 4.00% | 0.17 | 16.41 | 0.56 | 16.07 | 17.10 | 374.14 | 17 | 3,000 | 10,016 | 73 |
+| 50,000 | 1,000 | 2.00% | 0.16 | 16.38 | 0.53 | 16.06 | 18.74 | 744.76 | 18 | 3,000 | 10,048 | 150 |
+| 100,000 | 1,000 | 1.00% | 0.19 | 16.56 | 0.55 | 16.15 | 21.67 | 1,484.69 | 19 | 3,000 | 10,080 | 309 |
+| 200,000 | 1,000 | 0.50% | 0.21 | 16.76 | 0.55 | 16.25 | 26.80 | 2,969.02 | 20 | 3,000 | 10,112 | 641 |
+
+## (c) N = 100,000, q = 1,000, varying j_q
+
+| j_q | q | q/N | EPII retrieve (ms) | SG-HEF aggregate (ms) | VerifyIDX (ms) | ACL total (ms) | Full recompute (ms) | S-FullHE aggregate (ms) | ACL hashes | ACL HE adds | Bytes to EE | Index build (ms) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1,000 | 1.00% | 0.19 | 11.48 | 0.54 | 11.15 | 16.94 | 976.69 | 19 | 2,000 | 9,568 | 303 |
+| 2 | 1,000 | 1.00% | 0.20 | 16.60 | 0.54 | 16.14 | 21.99 | 1,489.22 | 19 | 3,000 | 10,080 | 309 |
+| 4 | 1,000 | 1.00% | 0.18 | 27.12 | 0.55 | 26.48 | 33.28 | 2,513.93 | 19 | 5,000 | 11,104 | 307 |
+| 8 | 1,000 | 1.00% | 0.20 | 47.48 | 0.56 | 46.65 | 54.45 | 4,569.86 | 19 | 9,000 | 13,152 | 313 |
+
+## (d) q/N = 1%, N up to 10^7 (shared ciphertext pool)
+
+| N | q | q/N | EPII retrieve (ms) | SG-HEF aggregate (ms) | VerifyIDX (ms) | ACL total (ms) | Full recompute (ms) | S-FullHE aggregate (ms) | ACL hashes | ACL HE adds | Bytes to EE | Index build (ms) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 10,000 | 100 | 1.00% | 0.07 | 1.59 | 0.10 | 1.65 | 2.06 | 148.39 | 16 | 300 | 2,784 | 29 |
+| 100,000 | 1,000 | 1.00% | 0.18 | 16.67 | 0.54 | 16.11 | 20.67 | 1,484.56 | 19 | 3,000 | 10,080 | 318 |
+| 1,000,000 | 10,000 | 1.00% | 1.32 | 173.24 | 5.57 | 174.22 | 210.41 | 14,841.54 | 22 | 30,000 | 82,176 | 3,574 |
+| 10,000,000 | 100,000 | 1.00% | 15.36 | 1,896.67 | 74.81 | 2,024.76 | 2,345.70 | 148,202.40 | 26 | 300,000 | 802,304 | 48,653 |
+
+Total time 508s

@@ -1,0 +1,27 @@
+=== Tue Nov  3 14:10:09 UTC 2026 run_journal_v2 at 0f3bb46
+== tests: python -m pytest -q tests (2026-11-03 14:10:09)
+   ok in 27 s
+== e2_scale: python experiments/e2_acl_scale.py --ns 10000,100000,1000000,10000000 (2026-11-03 14:10:36)
+   ok in 507 s
+== e2_scoping: python experiments/e2_scoping.py (2026-11-03 14:19:03)
+   ok in 280 s
+== e3_aqrs: python experiments/e3_aqrs.py --workers 8 --bits 512 --systems Direct,Fixed-3,Fixed-5,AQRS,Dynamic-Cover,AQRS-D28w,AQRS-D28e+P,Fixed-5-G,Fixed-5-G+CPt,Fixed-5-G+CP,AQRS-G3+CPt (2026-11-03 14:23:43)
+   ok in 227 s
+== e3_aqrs_2048: python experiments/e3_aqrs.py --workers 8 --bits 2048 --seeds 2 --tag 2048 --systems Direct,Fixed-3,Fixed-5,AQRS,Dynamic-Cover,AQRS-D28w,AQRS-D28e+P,Fixed-5-G,Fixed-5-G+CPt,Fixed-5-G+CP,AQRS-G3+CPt (2026-11-03 14:27:30)
+   ok in 2221 s
+== e3_padding: python experiments/e3_d29_padding.py --workers 8 (2026-11-03 15:04:31)
+   ok in 106 s
+== e4_temporal: python experiments/e4_temporal.py --workers 8 (2026-11-03 15:06:18)
+   ok in 762 s
+== e4_v2: python experiments/e4_v2.py --workers 8 (2026-11-03 15:19:00)
+   ok in 647 s
+== e5_acl: python experiments/e5_acl.py --workers 8 --variant J2 (2026-11-03 15:29:47)
+   ok in 225 s
+== e5_integrity: python experiments/e5_integrity.py --variant J2 --workers 8 --bits 2048 (2026-11-03 15:33:32)
+   ok in 65 s
+== e6_v2: python experiments/e6_v2.py --workers 4 --bits 2048 (2026-11-03 15:34:37)
+   ok in 443 s
+== ait: python experiments/ait_eval.py --parts e1,e3 --tag journal_v2 --workers 8 --heavy-workers 2 --systems S,A2,FixedDecay,LAPH-E,J2 --rules B1-default --leak-systems S,LAPH-E,J2 (2026-11-03 15:42:00)
+   ok in 52062 s
+done: results/vm-m7i-2xlarge-journal-v2/*.md
+=== Wed Nov  4 06:09:42 UTC 2026 FINISHED exit=0
