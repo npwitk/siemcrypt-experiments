@@ -1,0 +1,117 @@
+# AIT-LDSv2 results (ip-172-31-8-110, Linux-7.0.0-1014-aws-x86_64-with-glibc2.39)
+
+Development: russellmitchell, santos, fox; test: harrison, wardbeck, shaw, wheeler, wilson; full scenarios; alert budget 2 benign alerts per class per day.
+
+## E1-A: real attack chains (pooled over test scenarios)
+
+| System | Class | Incidents | Detected | False entities | AUC | Recall@FP2 |
+|---|---|---|---|---|---|---|
+| J2R | recon | 10 | 6 | 5 | 0.977 ± 0.027 | 0.733 ± 0.435 |
+| J2R | web_attack | 9 | 7 | 46 | 0.897 ± 0.194 | 0.600 ± 0.418 |
+| J2R | priv_esc | 16 | 8 | 25 | 0.982 ± 0.009 | 0.317 ± 0.037 |
+| J2R | dns_exfil | 9 | 4 | 7 | 0.968 ± 0.016 | 0.400 ± 0.224 |
+| J2R3 | recon | 10 | 6 | 5 | 0.977 ± 0.027 | 0.733 ± 0.435 |
+| J2R3 | web_attack | 9 | 7 | 46 | 0.897 ± 0.194 | 0.600 ± 0.418 |
+| J2R3 | priv_esc | 16 | 8 | 25 | 0.982 ± 0.009 | 0.317 ± 0.037 |
+| J2R3 | dns_exfil | 9 | 4 | 7 | 0.968 ± 0.016 | 0.400 ± 0.224 |
+
+## E1-B: injected low-and-slow attacks on harrison background, recall at the calibrated threshold
+
+
+dns_exfil, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 0.00 | 0.00 | 0.00 | 0.00 | 0.60 | 0.80 |
+| J2R3 | 0.00 | 0.00 | 0.00 | 0.00 | 0.60 | 0.80 |
+
+dns_exfil, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 0.00 | 0.00 | 0.00 | 0.20 | 0.80 | 0.80 |
+| J2R3 | 0.00 | 0.00 | 0.00 | 0.20 | 0.80 | 0.80 |
+
+recon, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 0.00 | 0.00 | 0.00 | 0.00 | 0.20 | 1.00 |
+| J2R3 | 0.00 | 0.00 | 0.00 | 0.00 | 0.20 | 1.00 |
+
+recon, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 0.00 | 0.00 | 0.00 | 0.00 | 0.80 | 1.00 |
+| J2R3 | 0.00 | 0.00 | 0.00 | 0.00 | 0.80 | 1.00 |
+
+## E1-B: injected low-and-slow attacks on harrison background, falsely alerted benign entities
+
+
+dns_exfil, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| J2R3 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+dns_exfil, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| J2R3 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+
+recon, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 |
+| J2R3 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 |
+
+recon, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 |
+| J2R3 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 | 1.40 |
+
+## E1-B: injected low-and-slow attacks on harrison background, recall@FP2 (threshold-free)
+
+
+dns_exfil, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 0.80 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 |
+| J2R3 | 0.80 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+dns_exfil, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 0.80 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 |
+| J2R3 | 0.80 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+recon, span 6 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 0.00 | 0.00 | 0.20 | 0.20 | 0.60 | 0.80 |
+| J2R3 | 0.00 | 0.00 | 0.20 | 0.20 | 0.60 | 0.80 |
+
+recon, span 24 epochs
+
+| System | r=1 | r=2 | r=4 | r=8 | r=16 | r=32 |
+|---|---|---|---|---|---|---|
+| J2R | 0.00 | 0.00 | 0.20 | 0.40 | 0.80 | 1.00 |
+| J2R3 | 0.00 | 0.00 | 0.20 | 0.40 | 0.80 | 1.00 |
+
+## E3: leakage on days 2-4 (prior: day 1 of the same scenario)
+
+| System | δ | U tokens | U volume | R tokens | R volume | Decoy AUC | Linkage | Chance |
+|---|---|---|---|---|---|---|---|---|
+| J2R3 | 0.809 ± 0.415 | 0.040 ± 0.005 | 0.174 ± 0.015 | 0.027 ± 0.003 | 0.235 ± 0.060 | 0.821 ± 0.147 | 0.225 ± 0.042 | 0.036 ± 0.005 |
+
+Total time 27352s

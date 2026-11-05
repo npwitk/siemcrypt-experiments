@@ -1,0 +1,8 @@
+== tests: python -m pytest -q tests (2026-11-05 01:51:49)
+   ok in 30 s
+== e3_design: python experiments/e3_d29_design.py --workers 8 (2026-11-05 01:52:19)
+   ok in 1896 s
+== ait: python experiments/ait_eval.py --parts e1,e3 --tag journal_v2_design --workers 8 --heavy-workers 2 --systems J2R,J2R3 --rules  --leak-systems J2R3 (2026-11-05 02:23:55)
+   ok in 27352 s
+done: results/vm-m7i-2xlarge-journal-v2-design/*.md
+FINISHED exit=0
