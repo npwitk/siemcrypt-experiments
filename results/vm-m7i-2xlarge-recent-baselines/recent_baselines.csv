@@ -1,0 +1,20 @@
+part,system,us_per_event,bytes_per_event,analytics,note,n,k,verify_ms
+A,S-NoPad,29799.922499996967,,"yes (Paillier, exact)",3.0 HE enc / real event,,,
+A,"S, k=3",39928.38531000259,,"yes (Paillier, exact)",4.02 HE enc / real event,,,
+A,"S, k=5",50652.64005000855,,"yes (Paillier, exact)",5.1 HE enc / real event,,,
+A,B10 Zhang 2025,11648.387499995748,1004,no,Paillier CID + RSA blind sig + RSA sig,,,
+A,"B11 Naresh 2025, F=77",764599.6435004249,39424,no (model on ciphertext values),one Paillier ciphertext per flow feature,,,
+A,"B11 Naresh 2025, F=3",29789.596500016556,1536,no (model on ciphertext values),favourable case: our 3 features,,,
+A,"B12 Ji 2026 (ref7), P3",7.259999996733768,258,no,5 AES-GCM fields,,,
+B,B10 Zhang 2025,,,,,1000,10,28.33652999996161
+B,B13 Wu 2025 (lower bound),,,,,1000,10,18.688383999972302
+B,B10 Zhang 2025,,,,,1000,1000,2833.6529999961613
+B,B13 Wu 2025 (lower bound),,,,,1000,1000,1700.6429439974795
+B,B10 Zhang 2025,,,,,10000,10,28.33652999996161
+B,B13 Wu 2025 (lower bound),,,,,10000,10,18.688383999972302
+B,B10 Zhang 2025,,,,,10000,1000,2833.6529999961613
+B,B13 Wu 2025 (lower bound),,,,,10000,1000,1700.6429439974795
+B,B10 Zhang 2025,,,,,100000,10,28.33652999996161
+B,B13 Wu 2025 (lower bound),,,,,100000,10,18.688383999972302
+B,B10 Zhang 2025,,,,,100000,1000,2833.6529999961613
+B,B13 Wu 2025 (lower bound),,,,,100000,1000,1700.6429439974795
